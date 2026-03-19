@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Streamdown } from "streamdown";
 import {
   PaperPlaneRightIcon,
   StopIcon,
@@ -23,6 +22,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { ToolPartView } from "./ToolPartView";
+import { AssistantMessage } from "./AssistantMessage";
 
 const STARTER_PROMPTS = [
   { label: "Share my Twitter profile", prefill: "My Twitter is @" },
@@ -267,14 +267,13 @@ function Chat() {
                     );
                   })}
 
-                {/* Text parts */}
-                {message.parts
-                  .filter((part) => part.type === "text")
-                  .map((part, i) => {
-                    const text = (part as { type: "text"; text: string }).text;
-                    if (!text) return null;
-
-                    if (isUser) {
+                {/* User text parts */}
+                {isUser &&
+                  message.parts
+                    .filter((part) => part.type === "text")
+                    .map((part, i) => {
+                      const text = (part as { type: "text"; text: string }).text;
+                      if (!text) return null;
                       return (
                         <div key={i} className="flex justify-end">
                           <div className="max-w-[90%] sm:max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-primary text-primary-foreground leading-relaxed">
@@ -282,14 +281,17 @@ function Chat() {
                           </div>
                         </div>
                       );
-                    }
+                    })}
 
+                {/* Assistant message — text + rich UI via json-render */}
+                {!isUser &&
+                  (() => {
                     // Render the Twitter profile card inline with the profile message
                     const isProfileMessage =
                       twitterProfile && message.id === `twitter-profile-${twitterProfile.handle}`;
                     if (isProfileMessage) {
                       return (
-                        <div key={i} className="space-y-3">
+                        <div className="space-y-3">
                           {/* Profile card */}
                           <div className="flex justify-start">
                             <div className="max-w-[90%] sm:max-w-[85%] px-4 py-3 rounded-xl bg-background border border-border space-y-2">
@@ -330,19 +332,12 @@ function Chat() {
                     }
 
                     return (
-                      <div key={i} className="flex justify-start">
-                        <div className="max-w-[90%] sm:max-w-[85%] overflow-x-auto rounded-2xl rounded-bl-md bg-background text-foreground leading-relaxed">
-                          <Streamdown
-                            className="rounded-2xl rounded-bl-md p-3"
-                            controls={false}
-                            isAnimating={isLastAssistant && isStreaming}
-                          >
-                            {text}
-                          </Streamdown>
-                        </div>
-                      </div>
+                      <AssistantMessage
+                        parts={message.parts}
+                        isAnimating={isLastAssistant && isStreaming}
+                      />
                     );
-                  })}
+                  })()}
               </div>
             );
           })}
