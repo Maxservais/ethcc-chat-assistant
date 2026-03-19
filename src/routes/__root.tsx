@@ -4,7 +4,6 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { QueryClient } from "@tanstack/react-query";
 
-import Header from "../components/Header";
 import { DefaultCatchBoundary } from "../components/DefaultCatchBoundary";
 import { NotFound } from "../components/NotFound";
 import { seo } from "../utils/seo";
@@ -63,9 +62,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="flex flex-col h-screen">
-        <div className="hidden sm:block">
+        {/* <div className="hidden sm:block">
           <Header />
-        </div>
+        </div> */}
         <main className="flex-1 flex flex-col min-h-0">{children}</main>
         <TanStackRouterDevtools position="bottom-right" />
         <ReactQueryDevtools buttonPosition="bottom-left" />

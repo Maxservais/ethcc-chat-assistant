@@ -10,18 +10,27 @@ import {
   DownloadIcon,
 } from "@phosphor-icons/react";
 
-function getToolSummary(toolName: string, output: Record<string, unknown>): string | null {
-  if (toolName === "searchTalks" && output?.talks) {
-    const showing = output.showing as number;
-    const total = output.totalMatches as number;
+/** Unwrap codemode output: { code, result, logs } → result, or pass through directly */
+function unwrapOutput(output: Record<string, unknown>): Record<string, unknown> {
+  if (output?.result && typeof output.result === "object" && "code" in output && "logs" in output) {
+    return output.result as Record<string, unknown>;
+  }
+  return output;
+}
+
+function getToolSummary(output: Record<string, unknown>): string | null {
+  const data = unwrapOutput(output);
+  if (data?.talks) {
+    const showing = data.showing as number;
+    const total = data.totalMatches as number;
     return `Found ${total} talk${total !== 1 ? "s" : ""}${showing < total ? ` (showing ${showing})` : ""}`;
   }
-  if (toolName === "getConferenceInfo" && output?.totalTalks) {
-    const tracks = output.tracks as string[];
-    return `${String(output.totalTalks)} talks across ${tracks?.length ?? 0} tracks`;
+  if (data?.totalTalks) {
+    const tracks = data.tracks as string[];
+    return `${Number(data.totalTalks)} talks across ${tracks?.length ?? 0} tracks`;
   }
-  if (toolName === "getTalkDetails") {
-    const title = output?.title as string;
+  if (data?.title && !data?.talks) {
+    const title = data.title as string;
     return title ? `Loaded: ${title}` : "Talk details loaded";
   }
   return null;
@@ -39,10 +48,11 @@ export function ToolPartView({
 
   // Completed
   if (part.state === "output-available") {
-    const output = part.output as Record<string, unknown>;
+    const rawOutput = part.output as Record<string, unknown>;
+    const output = unwrapOutput(rawOutput);
 
     // Special rendering for calendar file download
-    if (toolName === "generateCalendarFile" && output?.icsContent) {
+    if (output?.icsContent) {
       return (
         <div className="flex justify-start">
           <div className="max-w-[85%] px-4 py-3 rounded-xl ring-1 ring-border bg-card">
@@ -78,16 +88,13 @@ export function ToolPartView({
       );
     }
 
-    const summary = getToolSummary(toolName, output);
+    const summary = getToolSummary(rawOutput);
 
+    // Compact inline indicator for completed tools (like Claude's tool badges)
     return (
-      <div className="flex justify-start">
-        <div className="max-w-[85%] px-4 py-2 rounded-xl ring-1 ring-border bg-card">
-          <div className="flex items-center gap-2">
-            <CheckCircleIcon size={14} className="text-green-500" />
-            <span className="text-xs font-medium text-muted-foreground">{summary ?? toolName}</span>
-          </div>
-        </div>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground py-0.5">
+        <CheckCircleIcon size={12} className="text-emerald-500 shrink-0" />
+        <span>{summary ?? toolName}</span>
       </div>
     );
   }
@@ -158,13 +165,9 @@ export function ToolPartView({
   // Executing
   if (part.state === "input-available" || part.state === "input-streaming") {
     return (
-      <div className="flex justify-start">
-        <div className="max-w-[85%] px-4 py-2.5 rounded-xl ring-1 ring-border bg-card">
-          <div className="flex items-center gap-2">
-            <GearIcon size={14} className="text-muted-foreground animate-spin" />
-            <span className="text-xs text-muted-foreground">Running {toolName}...</span>
-          </div>
-        </div>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground py-0.5">
+        <GearIcon size={12} className="animate-spin shrink-0" />
+        <span>{toolName === "codemode" ? "Processing..." : `Running ${toolName}...`}</span>
       </div>
     );
   }

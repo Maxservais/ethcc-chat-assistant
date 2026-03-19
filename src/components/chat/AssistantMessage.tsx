@@ -25,9 +25,9 @@ export function AssistantMessage({ parts, isAnimating }: AssistantMessageProps) 
     <div className="space-y-3">
       {text && (
         <div className="flex justify-start">
-          <div className="max-w-[90%] sm:max-w-[85%] overflow-x-auto rounded-2xl rounded-bl-md bg-background text-foreground leading-relaxed">
+          <div className="max-w-[90%] sm:max-w-[85%] overflow-x-auto rounded-2xl rounded-bl-sm bg-card border border-border text-foreground leading-relaxed">
             <Streamdown
-              className="rounded-2xl rounded-bl-md p-3"
+              className="rounded-2xl rounded-bl-sm p-3"
               controls={false}
               isAnimating={isAnimating}
             >

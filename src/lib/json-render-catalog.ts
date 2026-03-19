@@ -44,7 +44,6 @@ export const catalog = defineCatalog(schema, {
     Card: shadcnComponentDefinitions.Card,
     Stack: shadcnComponentDefinitions.Stack,
     Grid: shadcnComponentDefinitions.Grid,
-    Table: shadcnComponentDefinitions.Table,
     Heading: shadcnComponentDefinitions.Heading,
     Text: shadcnComponentDefinitions.Text,
     Badge: shadcnComponentDefinitions.Badge,
