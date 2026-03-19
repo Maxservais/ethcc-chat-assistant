@@ -26,10 +26,16 @@ import { AssistantMessage } from "./AssistantMessage";
 
 const STARTER_PROMPTS = [
   { label: "Share my Twitter profile", prefill: "My Twitter is @" },
-  { label: "ZK proofs and privacy", prefill: "I'm interested in ZK proofs and privacy" },
+  {
+    label: "ZK proofs and privacy",
+    prefill: "I'm interested in ZK proofs and privacy",
+  },
   { label: "DeFi talks", prefill: "Show me all DeFi talks" },
   { label: "Plan my Day 1", prefill: "Help me plan my schedule for Day 1" },
-  { label: "Layer 2 scaling", prefill: "What talks are about Layer 2 scaling?" },
+  {
+    label: "Layer 2 scaling",
+    prefill: "What talks are about Layer 2 scaling?",
+  },
 ];
 
 interface WorkflowProgress {
@@ -186,7 +192,7 @@ function Chat() {
               {/* Welcome message from the assistant */}
               <div className="flex justify-start">
                 <div className="max-w-[90%] sm:max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md bg-background text-foreground leading-relaxed space-y-1">
-                  <p className="text-sm font-medium">Hey! I'm your EthCC[8] agenda planner.</p>
+                  <p className="text-sm font-medium">Hey! I'm your EthCC[9] agenda planner.</p>
                   <p className="text-sm text-muted-foreground">
                     Share your Twitter/X profile and I'll analyze your interests to find the best
                     talks for you. Or just tell me what topics you're into.

@@ -1,5 +1,10 @@
-import { useJsonRenderMessage } from "@json-render/react";
-import { Renderer } from "@json-render/react";
+import {
+  useJsonRenderMessage,
+  Renderer,
+  StateProvider,
+  VisibilityProvider,
+  ActionProvider,
+} from "@json-render/react";
 import { Streamdown } from "streamdown";
 import { registry } from "@/lib/json-render-registry";
 import type { DataPart } from "@json-render/react";
@@ -31,10 +36,16 @@ export function AssistantMessage({ parts, isAnimating }: AssistantMessageProps) 
           </div>
         </div>
       )}
-      {hasSpec && (
+      {hasSpec && !isAnimating && (
         <div className="flex justify-start">
           <div className="max-w-[90%] sm:max-w-[85%] w-full">
-            <Renderer spec={spec} registry={registry} />
+            <StateProvider>
+              <VisibilityProvider>
+                <ActionProvider handlers={{}}>
+                  <Renderer spec={spec} registry={registry} />
+                </ActionProvider>
+              </VisibilityProvider>
+            </StateProvider>
           </div>
         </div>
       )}

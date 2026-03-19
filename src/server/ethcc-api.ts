@@ -1,9 +1,8 @@
 // EthCC tRPC API client
-// Uses ethcc-8 data for now; flip EDITION_ID to "ethcc-9" when schedule is published
 
 const BASE_URL = "https://ethcc.io/api/trpc";
 const CONFERENCE_ID = "ethcc";
-const EDITION_ID = "ethcc-8"; // Change to "ethcc-9" when ready
+const EDITION_ID = "ethcc-9";
 const CACHE_TTL = 3600; // 1 hour in seconds
 
 // --- Types ---
@@ -197,7 +196,12 @@ export function searchByInterests(talks: EthccTalk[], interests: string[]): Ethc
   // For each talk, track which interests it matched and its total score
   const talkScores = new Map<
     string,
-    { talk: EthccTalk; interestCount: number; totalScore: number; matchedInterests: string[] }
+    {
+      talk: EthccTalk;
+      interestCount: number;
+      totalScore: number;
+      matchedInterests: string[];
+    }
   >();
 
   for (const interest of interests) {
