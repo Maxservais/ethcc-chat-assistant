@@ -10,7 +10,7 @@ import {
   type ToolSet,
 } from "ai";
 import { z } from "zod";
-import { createCodeTool } from "@cloudflare/codemode/ai";
+import { createCodeTool, aiTools } from "@cloudflare/codemode/ai";
 import { DynamicWorkerExecutor } from "@cloudflare/codemode";
 import {
   fetchTalks,
@@ -402,7 +402,7 @@ When the user asks for recommendations or a personalized schedule, use these int
       /* no MCP servers configured */
     }
     const allTools = { ...tools, ...mcpTools };
-    const codemode = createCodeTool({ tools: allTools, executor });
+    const codemode = createCodeTool({ tools: [aiTools(allTools)], executor });
 
     const result = streamText({
       model: workersai("@cf/zai-org/glm-4.7-flash"),
