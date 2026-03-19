@@ -48,7 +48,11 @@ export interface EthccLocation {
 
 // --- KV-cached tRPC fetch ---
 
-async function trpcQuery<T>(router: string, procedure: string, input: Record<string, unknown>): Promise<T> {
+async function trpcQuery<T>(
+  router: string,
+  procedure: string,
+  input: Record<string, unknown>,
+): Promise<T> {
   const url = new URL(`${BASE_URL}/${router}.${procedure}`);
   url.searchParams.set("input", JSON.stringify({ json: input }));
 
@@ -57,11 +61,15 @@ async function trpcQuery<T>(router: string, procedure: string, input: Record<str
     throw new Error(`EthCC API error: ${res.status} ${res.statusText} for ${router}.${procedure}`);
   }
 
-  const data = await res.json() as { result: { data: { json: T } } };
+  const data = (await res.json()) as { result: { data: { json: T } } };
   return data.result.data.json;
 }
 
-async function cachedQuery<T>(kv: KVNamespace, cacheKey: string, fetcher: () => Promise<T>): Promise<T> {
+async function cachedQuery<T>(
+  kv: KVNamespace,
+  cacheKey: string,
+  fetcher: () => Promise<T>,
+): Promise<T> {
   // Try cache first
   const cached = await kv.get(cacheKey, "json");
   if (cached) return cached as T;
@@ -70,7 +78,7 @@ async function cachedQuery<T>(kv: KVNamespace, cacheKey: string, fetcher: () => 
   const data = await fetcher();
 
   // Store in KV with TTL (fire-and-forget, don't block response)
-  kv.put(cacheKey, JSON.stringify(data), { expirationTtl: CACHE_TTL });
+  void kv.put(cacheKey, JSON.stringify(data), { expirationTtl: CACHE_TTL });
 
   return data;
 }
@@ -82,7 +90,7 @@ export async function fetchTalks(kv: KVNamespace): Promise<EthccTalk[]> {
     trpcQuery<EthccTalk[]>("talksRouter", "getTalks", {
       conferenceId: CONFERENCE_ID,
       editionId: EDITION_ID,
-    })
+    }),
   );
 }
 
@@ -105,7 +113,7 @@ export async function fetchDays(kv: KVNamespace): Promise<EthccDay[]> {
     trpcQuery<EthccDay[]>("talksRouter", "getDays", {
       conferenceId: CONFERENCE_ID,
       editionId: EDITION_ID,
-    })
+    }),
   );
 }
 
@@ -114,7 +122,7 @@ export async function fetchLocations(kv: KVNamespace): Promise<EthccLocation[]> 
     trpcQuery<EthccLocation[]>("talksRouter", "getLocations", {
       conferenceId: CONFERENCE_ID,
       editionId: EDITION_ID,
-    })
+    }),
   );
 }
 
@@ -130,7 +138,10 @@ export function filterRealTalks(talks: EthccTalk[]): EthccTalk[] {
 /** Case-insensitive search: splits query into words (3+ chars), matches if ANY word hits.
  *  Title/track/speaker matches are weighted higher than description matches. */
 export function searchTalksLocal(talks: EthccTalk[], query: string): EthccTalk[] {
-  const words = query.toLowerCase().split(/\s+/).filter((w) => w.length >= 3);
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length >= 3);
   if (words.length === 0) return talks;
 
   // Compute IDF: rare words score higher than common ones
@@ -138,7 +149,8 @@ export function searchTalksLocal(talks: EthccTalk[], query: string): EthccTalk[]
   for (const w of words) {
     let count = 0;
     for (const t of talks) {
-      const blob = `${t.title} ${t.extendedProps.track} ${t.extendedProps.description ?? ""} ${t.extendedProps.speakersData.map((s) => `${s.displayName} ${s.organization}`).join(" ")}`.toLowerCase();
+      const blob =
+        `${t.title} ${t.extendedProps.track} ${t.extendedProps.description ?? ""} ${t.extendedProps.speakersData.map((s) => `${s.displayName} ${s.organization}`).join(" ")}`.toLowerCase();
       if (blob.includes(w)) count++;
     }
     wordDocCounts.set(w, count);
@@ -183,7 +195,10 @@ export function searchByInterests(talks: EthccTalk[], interests: string[]): Ethc
   if (interests.length === 0) return talks;
 
   // For each talk, track which interests it matched and its total score
-  const talkScores = new Map<string, { talk: EthccTalk; interestCount: number; totalScore: number; matchedInterests: string[] }>();
+  const talkScores = new Map<
+    string,
+    { talk: EthccTalk; interestCount: number; totalScore: number; matchedInterests: string[] }
+  >();
 
   for (const interest of interests) {
     const matches = searchTalksLocal(talks, interest);
@@ -210,10 +225,11 @@ export function searchByInterests(talks: EthccTalk[], interests: string[]): Ethc
 
   const entries = [...talkScores.values()];
   // Primary: more interests matched. Secondary: higher cumulative score. Tertiary: time.
-  entries.sort((a, b) =>
-    b.interestCount - a.interestCount
-    || b.totalScore - a.totalScore
-    || a.talk.start.localeCompare(b.talk.start)
+  entries.sort(
+    (a, b) =>
+      b.interestCount - a.interestCount ||
+      b.totalScore - a.totalScore ||
+      a.talk.start.localeCompare(b.talk.start),
   );
 
   return entries.map((e) => e.talk);
@@ -267,7 +283,9 @@ export function formatTalkForAI(talk: EthccTalk): Record<string, unknown> {
     time: `${timeFromISO(talk.start)}-${timeFromISO(talk.end)}`,
     start: talk.start,
     end: talk.end,
-    speakers: talk.extendedProps.speakersData.map((s) => `${s.displayName} (${s.organization})`).join(", "),
+    speakers: talk.extendedProps.speakersData
+      .map((s) => `${s.displayName} (${s.organization})`)
+      .join(", "),
     description: (talk.extendedProps.description ?? "").slice(0, 120),
     room: talk.resourceId,
   };

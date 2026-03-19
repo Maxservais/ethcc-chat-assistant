@@ -35,10 +35,7 @@ export class TwitterAnalysisWorkflow extends AgentWorkflow<
   TwitterWorkflowParams,
   ProgressType
 > {
-  async run(
-    event: AgentWorkflowEvent<TwitterWorkflowParams>,
-    step: AgentWorkflowStep
-  ) {
+  async run(event: AgentWorkflowEvent<TwitterWorkflowParams>, step: AgentWorkflowStep) {
     const { handle } = event.payload;
 
     // Step 1: Scrape tweets via Apify (durable, retriable)
@@ -56,10 +53,7 @@ export class TwitterAnalysisWorkflow extends AgentWorkflow<
           percent: 0.1,
         });
 
-        const result = await scrapeTweets(
-          handle,
-          this.env.APIFY_API_TOKEN
-        );
+        const result = await scrapeTweets(handle, this.env.APIFY_API_TOKEN);
 
         await this.reportProgress({
           step: "scrape",
@@ -69,7 +63,7 @@ export class TwitterAnalysisWorkflow extends AgentWorkflow<
         });
 
         return result;
-      }
+      },
     );
 
     // Abort early if no tweets found (don't send empty prompt to LLM)
@@ -103,15 +97,15 @@ export class TwitterAnalysisWorkflow extends AgentWorkflow<
         });
 
         const workersai = createWorkersAI({ binding: this.env.AI });
-        const filteredTweets = scrapeResult.tweets
-          .map((t) => t.text)
-          .filter((t) => t.length > 10); // skip very short/empty tweets
+        const filteredTweets = scrapeResult.tweets.map((t) => t.text).filter((t) => t.length > 10); // skip very short/empty tweets
 
-        console.log(`[twitter-workflow] Summarizing ${filteredTweets.length}/${scrapeResult.tweets.length} tweets (after filtering short ones)`);
+        console.log(
+          `[twitter-workflow] Summarizing ${filteredTweets.length}/${scrapeResult.tweets.length} tweets (after filtering short ones)`,
+        );
 
         if (filteredTweets.length === 0) {
           throw new Error(
-            `No usable tweet content found for @${handle}. The account may be private or only has very short tweets.`
+            `No usable tweet content found for @${handle}. The account may be private or only has very short tweets.`,
           );
         }
 
@@ -120,7 +114,6 @@ export class TwitterAnalysisWorkflow extends AgentWorkflow<
         console.log(`[twitter-workflow] First tweet sample: "${filteredTweets[0]?.slice(0, 150)}"`);
 
         const result = await generateText({
-          // @ts-expect-error -- model not yet in workers-ai-provider type list
           model: workersai("@cf/meta/llama-3.3-70b-instruct-fp8-fast"),
           system: `You are analyzing a Twitter/X user's tweets to understand their professional interests, especially related to blockchain, crypto, Ethereum, and technology.
 
@@ -143,7 +136,9 @@ Rules:
         });
 
         // Parse the LLM output
-        console.log(`[twitter-workflow] LLM raw response (${result.text.length} chars): "${result.text.slice(0, 300)}"`);
+        console.log(
+          `[twitter-workflow] LLM raw response (${result.text.length} chars): "${result.text.slice(0, 300)}"`,
+        );
 
         let parsed: { interests: string[]; summary: string };
         try {
@@ -175,7 +170,7 @@ Rules:
         });
 
         return profile;
-      }
+      },
     );
 
     // Step 3: Store in agent state (durable)

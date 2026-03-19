@@ -1,44 +1,40 @@
-/// <reference types="vite/client" />
-import {
-  HeadContent,
-  Outlet,
-  Scripts,
-  createRootRouteWithContext,
-} from '@tanstack/react-router'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import type { QueryClient } from '@tanstack/react-query'
+/// <reference types="vite-plus/client" />
+import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import type { QueryClient } from "@tanstack/react-query";
 
-import Header from '../components/Header'
-import { DefaultCatchBoundary } from '../components/DefaultCatchBoundary'
-import { NotFound } from '../components/NotFound'
-import { seo } from '../utils/seo'
+import Header from "../components/Header";
+import { DefaultCatchBoundary } from "../components/DefaultCatchBoundary";
+import { NotFound } from "../components/NotFound";
+import { seo } from "../utils/seo";
 
-import appCss from '../styles.css?url'
+import appCss from "../styles.css?url";
 
 export const Route = createRootRouteWithContext<{
-  queryClient: QueryClient
+  queryClient: QueryClient;
 }>()({
   head: () => ({
     meta: [
       {
-        charSet: 'utf-8',
+        charSet: "utf-8",
       },
       {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, viewport-fit=cover",
       },
       ...seo({
-        title: 'EthCC Planner — AI Agenda Assistant',
-        description: 'AI-powered agenda planner for EthCC. Get personalized talk recommendations and export your schedule.',
+        title: "EthCC Planner — AI Agenda Assistant",
+        description:
+          "AI-powered agenda planner for EthCC. Get personalized talk recommendations and export your schedule.",
       }),
     ],
     links: [
       {
-        rel: 'stylesheet',
+        rel: "stylesheet",
         href: appCss,
       },
-      { rel: 'icon', href: '/favicon.ico' },
+      { rel: "icon", href: "/favicon.ico" },
     ],
   }),
   errorComponent: (props) => {
@@ -46,18 +42,18 @@ export const Route = createRootRouteWithContext<{
       <RootDocument>
         <DefaultCatchBoundary {...props} />
       </RootDocument>
-    )
+    );
   },
   notFoundComponent: () => <NotFound />,
   component: RootComponent,
-})
+});
 
 function RootComponent() {
   return (
     <RootDocument>
       <Outlet />
     </RootDocument>
-  )
+  );
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
@@ -70,13 +66,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <div className="hidden sm:block">
           <Header />
         </div>
-        <main className="flex-1 flex flex-col min-h-0">
-          {children}
-        </main>
+        <main className="flex-1 flex flex-col min-h-0">{children}</main>
         <TanStackRouterDevtools position="bottom-right" />
         <ReactQueryDevtools buttonPosition="bottom-left" />
         <Scripts />
       </body>
     </html>
-  )
+  );
 }

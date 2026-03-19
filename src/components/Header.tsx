@@ -1,5 +1,5 @@
-import { Link } from '@tanstack/react-router'
-import { Calendar } from 'lucide-react'
+import { Link } from "@tanstack/react-router";
+import { Calendar } from "lucide-react";
 
 export default function Header() {
   return (
@@ -9,5 +9,5 @@ export default function Header() {
         <span className="text-lg font-semibold">EthCC Planner</span>
       </Link>
     </header>
-  )
+  );
 }

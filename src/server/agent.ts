@@ -7,10 +7,10 @@ import {
   tool,
   stepCountIs,
   type StreamTextOnFinishCallback,
-  type ToolSet
+  type ToolSet,
 } from "ai";
 import { z } from "zod";
-import { createCodeTool } from "@cloudflare/codemode/ai";
+import { createCodeTool, aiTools } from "@cloudflare/codemode/ai";
 import { DynamicWorkerExecutor } from "@cloudflare/codemode";
 import {
   fetchTalks,
@@ -26,7 +26,11 @@ import {
   getUniqueTracks,
   formatTalkForAI,
 } from "./ethcc-api";
-import type { TwitterInterestProfile, TwitterWorkflowError, TwitterWorkflowResult } from "./twitter-workflow";
+import type {
+  TwitterInterestProfile,
+  TwitterWorkflowError,
+  TwitterWorkflowResult,
+} from "./twitter-workflow";
 
 /** Escape special ICS characters */
 function escapeICS(s: string): string {
@@ -74,23 +78,16 @@ interface AgentState {
   twitterProfile?: TwitterInterestProfile;
 }
 
-
 export class ChatAgent extends AIChatAgent<Env, AgentState> {
   // --- Workflow lifecycle callbacks ---
 
-  async onWorkflowProgress(
-    _workflowName: string,
-    _instanceId: string,
-    progress: unknown,
-  ) {
-    this.broadcast(JSON.stringify({ type: "workflow-progress", ...(progress as Record<string, unknown>) }));
+  async onWorkflowProgress(_workflowName: string, _instanceId: string, progress: unknown) {
+    this.broadcast(
+      JSON.stringify({ type: "workflow-progress", ...(progress as Record<string, unknown>) }),
+    );
   }
 
-  async onWorkflowComplete(
-    _workflowName: string,
-    _instanceId: string,
-    result?: unknown,
-  ) {
+  async onWorkflowComplete(_workflowName: string, _instanceId: string, result?: unknown) {
     const data = result as TwitterWorkflowResult | undefined;
     if (!data) return;
 
@@ -103,10 +100,12 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
         this.messages.push({
           id: msgId,
           role: "assistant" as const,
-          parts: [{
-            type: "text" as const,
-            text: `I couldn't analyze that Twitter profile: ${err.error}\n\nYou can try a different handle, or just tell me your interests directly (e.g. "I'm into DeFi, ZK proofs, and stablecoins") and I'll find matching talks!`,
-          }],
+          parts: [
+            {
+              type: "text" as const,
+              text: `I couldn't analyze that Twitter profile: ${err.error}\n\nYou can try a different handle, or just tell me your interests directly (e.g. "I'm into DeFi, ZK proofs, and stablecoins") and I'll find matching talks!`,
+            },
+          ],
         });
         await this.persistMessages(this.messages);
       }
@@ -123,21 +122,19 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
         this.messages.push({
           id: msgId,
           role: "assistant" as const,
-          parts: [{
-            type: "text" as const,
-            text: `Based on your Twitter profile (@${profile.handle}), here are your interests:\n\n${interestsList}\n\n${profile.summary}\n\nWant me to find EthCC talks matching these interests? You can also refine or add topics.`,
-          }],
+          parts: [
+            {
+              type: "text" as const,
+              text: `Based on your Twitter profile (@${profile.handle}), here are your interests:\n\n${interestsList}\n\n${profile.summary}\n\nWant me to find EthCC talks matching these interests? You can also refine or add topics.`,
+            },
+          ],
         });
         await this.persistMessages(this.messages);
       }
     }
   }
 
-  async onWorkflowError(
-    _workflowName: string,
-    _instanceId: string,
-    error: string,
-  ) {
+  async onWorkflowError(_workflowName: string, _instanceId: string, error: string) {
     console.log(`[agent] onWorkflowError called: instanceId=${_instanceId}, error="${error}"`);
     this.broadcast(JSON.stringify({ type: "workflow-error", error }));
 
@@ -146,10 +143,12 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
       this.messages.push({
         id: msgId,
         role: "assistant" as const,
-        parts: [{
-          type: "text" as const,
-          text: `I couldn't analyze that Twitter profile: ${error}\n\nYou can try a different handle, or just tell me your interests directly (e.g. "I'm into DeFi, ZK proofs, and stablecoins") and I'll find matching talks!`,
-        }],
+        parts: [
+          {
+            type: "text" as const,
+            text: `I couldn't analyze that Twitter profile: ${error}\n\nYou can try a different handle, or just tell me your interests directly (e.g. "I'm into DeFi, ZK proofs, and stablecoins") and I'll find matching talks!`,
+          },
+        ],
       });
       await this.persistMessages(this.messages);
     }
@@ -159,21 +158,22 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
 
   async onChatMessage(
     onFinish: StreamTextOnFinishCallback<ToolSet>,
-    options?: { abortSignal?: AbortSignal }
+    options?: { abortSignal?: AbortSignal },
   ) {
     // Extract text from last user message
     const lastMessage = this.messages.at(-1);
-    const userText = lastMessage?.role === "user"
-      ? lastMessage.parts
-          ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
-          .map((p) => p.text)
-          .join(" ") ?? ""
-      : "";
+    const userText =
+      lastMessage?.role === "user"
+        ? (lastMessage.parts
+            ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
+            .map((p) => p.text)
+            .join(" ") ?? "")
+        : "";
 
     // Check for injection attempts
     if (userText && detectInjection(userText)) {
       return new Response(
-        'I can only help with EthCC[8] planning — ask me about talks, speakers, tracks, or scheduling!'
+        "I can only help with EthCC[8] planning — ask me about talks, speakers, tracks, or scheduling!",
       );
     }
 
@@ -193,32 +193,55 @@ Summary: ${twitterProfile.summary}
 When the user asks for recommendations or a personalized schedule, use these interests to search for relevant talks. Present the interest summary first and ask the user to confirm or refine before searching.`
       : "";
 
-    // Capture agent for use in tool closures
-    const agent = this;
-
     // Define tools as a standalone object for code mode
     const tools = {
       analyzeTwitterProfile: tool({
-        description: "Analyze a Twitter/X profile to extract user interests for personalized EthCC talk recommendations. Call this when the user shares a Twitter handle or URL. The analysis runs in the background (~30 seconds) and results will appear automatically.",
+        description:
+          "Analyze a Twitter/X profile to extract user interests for personalized EthCC talk recommendations. Call this when the user shares a Twitter handle or URL. The analysis runs in the background (~30 seconds) and results will appear automatically.",
         inputSchema: z.object({
-          handle: z.string().describe("Twitter/X handle without @ (e.g. 'MaximeServais77', 'vitalik')"),
+          handle: z
+            .string()
+            .describe("Twitter/X handle without @ (e.g. 'MaximeServais77', 'vitalik')"),
         }),
         execute: async ({ handle }) => {
-          agent.setState({ ...agent.state, twitterProfile: undefined });
-          await agent.runWorkflow("TWITTER_ANALYSIS_WORKFLOW", { handle });
+          this.setState({ ...this.state, twitterProfile: undefined });
+          await this.runWorkflow("TWITTER_ANALYSIS_WORKFLOW", { handle });
           return `Twitter analysis started for @${handle}. Results will appear in about 30 seconds.`;
         },
       }),
 
       searchTalks: tool({
-        description: "Search EthCC talks by keyword, track, date, or interests. Use 'interests' (array) for personalized recommendations. Use 'query' for keyword searches. Use offset to paginate.",
+        description:
+          "Search EthCC talks by keyword, track, date, or interests. Use 'interests' (array) for personalized recommendations. Use 'query' for keyword searches. Use offset to paginate.",
         inputSchema: z.object({
-          query: z.string().optional().describe("Free-text search (e.g. 'ZK proofs', 'DeFi yields', 'Vitalik')"),
-          interests: z.array(z.string()).optional().describe("Array of interest topics for personalized recommendations (e.g. ['DeFi', 'Starknet', 'stablecoins']). Searches each topic independently and ranks by relevance across all interests."),
-          track: z.string().optional().describe("Filter by track name (e.g. 'DeFi', 'Zero Knowledge & Cryptography', 'Security')"),
-          date: z.string().optional().describe("Filter by date in YYYY-MM-DD format (2025-06-30 to 2025-07-03)"),
+          query: z
+            .string()
+            .optional()
+            .describe("Free-text search (e.g. 'ZK proofs', 'DeFi yields', 'Vitalik')"),
+          interests: z
+            .array(z.string())
+            .optional()
+            .describe(
+              "Array of interest topics for personalized recommendations (e.g. ['DeFi', 'Starknet', 'stablecoins']). Searches each topic independently and ranks by relevance across all interests.",
+            ),
+          track: z
+            .string()
+            .optional()
+            .describe(
+              "Filter by track name (e.g. 'DeFi', 'Zero Knowledge & Cryptography', 'Security')",
+            ),
+          date: z
+            .string()
+            .optional()
+            .describe("Filter by date in YYYY-MM-DD format (2025-06-30 to 2025-07-03)"),
           limit: z.number().optional().default(10).describe("Max results to return"),
-          offset: z.number().optional().default(0).describe("Number of results to skip (for pagination). E.g. if you already showed 10, use offset:10 to get the next batch."),
+          offset: z
+            .number()
+            .optional()
+            .default(0)
+            .describe(
+              "Number of results to skip (for pagination). E.g. if you already showed 10, use offset:10 to get the next batch.",
+            ),
         }),
         execute: async ({ query, interests, track, date, limit: rawLimit, offset: rawOffset }) => {
           // Codemode bypasses Zod defaults — apply them manually
@@ -261,7 +284,9 @@ When the user asks for recommendations or a personalized schedule, use these int
       getTalkDetails: tool({
         description: "Get full details for a specific talk by its slug.",
         inputSchema: z.object({
-          slug: z.string().describe("The talk slug (URL-friendly name, e.g. 'aave-v4-supercharged-defi')"),
+          slug: z
+            .string()
+            .describe("The talk slug (URL-friendly name, e.g. 'aave-v4-supercharged-defi')"),
         }),
         execute: async ({ slug }) => {
           const talk = await fetchTalkBySlug(kv, slug);
@@ -303,16 +328,24 @@ When the user asks for recommendations or a personalized schedule, use these int
       }),
 
       generateCalendarFile: tool({
-        description: "Generate an .ics calendar file for selected EthCC talks. Use data directly from searchTalks output — no need to call getTalkDetails first.",
+        description:
+          "Generate an .ics calendar file for selected EthCC talks. Use data directly from searchTalks output — no need to call getTalkDetails first.",
         inputSchema: z.object({
-          talks: z.array(z.object({
-            title: z.string(),
-            start: z.string().describe("ISO timestamp e.g. 2025-06-30T15:25:00"),
-            end: z.string().describe("ISO timestamp e.g. 2025-06-30T15:45:00"),
-            room: z.string().optional(),
-            speakers: z.string().optional().describe("Comma-separated speaker names, e.g. 'Alice (Org1), Bob (Org2)'"),
-            description: z.string().optional(),
-          })).describe("Array of talks to add to the calendar"),
+          talks: z
+            .array(
+              z.object({
+                title: z.string(),
+                start: z.string().describe("ISO timestamp e.g. 2025-06-30T15:25:00"),
+                end: z.string().describe("ISO timestamp e.g. 2025-06-30T15:45:00"),
+                room: z.string().optional(),
+                speakers: z
+                  .string()
+                  .optional()
+                  .describe("Comma-separated speaker names, e.g. 'Alice (Org1), Bob (Org2)'"),
+                description: z.string().optional(),
+              }),
+            )
+            .describe("Array of talks to add to the calendar"),
         }),
         execute: async ({ talks }) => {
           const events = talks.map((talk) => {
@@ -333,7 +366,9 @@ When the user asks for recommendations or a personalized schedule, use these int
               descParts.length ? `DESCRIPTION:${escapeICS(descParts.join("\n"))}` : "",
               `LOCATION:${escapeICS(`${talk.room ? `${talk.room}, ` : ""}Palais des Festivals, Cannes`)}`,
               "END:VEVENT",
-            ].filter(Boolean).join("\r\n");
+            ]
+              .filter(Boolean)
+              .join("\r\n");
           });
 
           const ics = [
@@ -361,12 +396,15 @@ When the user asks for recommendations or a personalized schedule, use these int
     // Create code mode executor + tool
     const executor = new DynamicWorkerExecutor({ loader: this.env.LOADER });
     let mcpTools: ToolSet = {};
-    try { mcpTools = this.mcp.getAITools(); } catch { /* no MCP servers configured */ }
+    try {
+      mcpTools = this.mcp.getAITools();
+    } catch {
+      /* no MCP servers configured */
+    }
     const allTools = { ...tools, ...mcpTools };
-    const codemode = createCodeTool({ tools: allTools, executor });
+    const codemode = createCodeTool({ tools: [aiTools(allTools)], executor });
 
     const result = streamText({
-      // @ts-expect-error -- model not yet in workers-ai-provider type list
       model: workersai("@cf/zai-org/glm-4.7-flash"),
       system: `You are the EthCC Planner, a specialized AI assistant exclusively for EthCC[8] conference planning.
 When you need to perform operations, use the codemode tool to write JavaScript that calls the available functions on the \`codemode\` object.
@@ -394,13 +432,13 @@ ${interestsContext}
 Current date: ${new Date().toISOString().split("T")[0]}`,
       messages: pruneMessages({
         messages: await convertToModelMessages(this.messages),
-        toolCalls: "before-last-2-messages"
+        toolCalls: "before-last-2-messages",
       }),
       tools: { codemode },
       maxOutputTokens: 4096,
       onFinish,
       stopWhen: stepCountIs(5),
-      abortSignal: options?.abortSignal
+      abortSignal: options?.abortSignal,
     });
 
     return result.toUIMessageStreamResponse();
