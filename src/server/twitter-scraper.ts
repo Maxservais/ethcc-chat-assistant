@@ -24,7 +24,7 @@ export interface ScrapeResult {
 export async function scrapeTweets(
   handle: string,
   apiToken: string,
-  maxItems = 50
+  maxItems = 50,
 ): Promise<ScrapeResult> {
   const cleanHandle = handle.replace(/^@/, "").trim();
   if (!cleanHandle || !/^\w{1,15}$/.test(cleanHandle)) {
@@ -45,9 +45,7 @@ export async function scrapeTweets(
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(
-      `Apify API error (${response.status}): ${body.slice(0, 200)}`
-    );
+    throw new Error(`Apify API error (${response.status}): ${body.slice(0, 200)}`);
   }
 
   const raw: unknown = await response.json();
@@ -55,9 +53,7 @@ export async function scrapeTweets(
   // Apify may return an error object instead of an array (e.g. paid plan required)
   if (!Array.isArray(raw)) {
     console.error(`[twitter-scraper] Apify returned non-array:`, JSON.stringify(raw).slice(0, 500));
-    throw new Error(
-      `Apify returned an unexpected response. Check your Apify plan and API token.`
-    );
+    throw new Error(`Apify returned an unexpected response. Check your Apify plan and API token.`);
   }
 
   const items = raw as Record<string, unknown>[];
@@ -65,11 +61,14 @@ export async function scrapeTweets(
 
   // Apify returns [{"noResults":true}] when the profile doesn't exist or has no tweets.
   // Return empty result (don't throw) so the workflow doesn't retry — retrying won't help.
-  const hasNoResults = items.length === 0
-    || (items.length === 1 && (items[0] as Record<string, unknown>)?.noResults === true);
+  const hasNoResults =
+    items.length === 0 ||
+    (items.length === 1 && (items[0] as Record<string, unknown>)?.noResults === true);
 
   if (hasNoResults) {
-    console.log(`[twitter-scraper] @${cleanHandle}: no results from Apify (profile may not exist or be private)`);
+    console.log(
+      `[twitter-scraper] @${cleanHandle}: no results from Apify (profile may not exist or be private)`,
+    );
     return { handle: cleanHandle, tweets: [], tweetCount: 0 };
   }
 
@@ -82,7 +81,9 @@ export async function scrapeTweets(
 
   // Filter out non-tweet items (e.g. metadata objects without text)
   const tweetItems = items.filter((item) => item.text || item.fullText);
-  console.log(`[twitter-scraper] @${cleanHandle}: ${items.length} items from Apify, ${tweetItems.length} with tweet text`);
+  console.log(
+    `[twitter-scraper] @${cleanHandle}: ${items.length} items from Apify, ${tweetItems.length} with tweet text`,
+  );
 
   if (tweetItems.length === 0) {
     console.log(`[twitter-scraper] @${cleanHandle}: all items lack tweet text`);

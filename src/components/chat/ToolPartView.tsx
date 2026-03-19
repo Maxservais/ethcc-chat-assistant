@@ -18,7 +18,7 @@ function getToolSummary(toolName: string, output: Record<string, unknown>): stri
   }
   if (toolName === "getConferenceInfo" && output?.totalTalks) {
     const tracks = output.tracks as string[];
-    return `${output.totalTalks} talks across ${tracks?.length ?? 0} tracks`;
+    return `${String(output.totalTalks)} talks across ${tracks?.length ?? 0} tracks`;
   }
   if (toolName === "getTalkDetails") {
     const title = output?.title as string;
@@ -32,10 +32,7 @@ export function ToolPartView({
   addToolApprovalResponse,
 }: {
   part: UIMessage["parts"][number];
-  addToolApprovalResponse: (response: {
-    id: string;
-    approved: boolean;
-  }) => void;
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void;
 }) {
   if (!isToolUIPart(part)) return null;
   const toolName = getToolName(part);
@@ -51,10 +48,10 @@ export function ToolPartView({
           <div className="max-w-[85%] px-4 py-3 rounded-xl ring-1 ring-border bg-card">
             <div className="flex items-center gap-2 mb-2">
               <CalendarIcon size={16} className="text-violet-500" />
-              <span className="text-sm font-semibold text-foreground">
-                Calendar Ready
-              </span>
-              <Badge variant="secondary">{String(output.eventCount)} event{Number(output.eventCount) !== 1 ? "s" : ""}</Badge>
+              <span className="text-sm font-semibold text-foreground">Calendar Ready</span>
+              <Badge variant="secondary">
+                {String(output.eventCount)} event{Number(output.eventCount) !== 1 ? "s" : ""}
+              </Badge>
             </div>
             <Button
               size="sm"
@@ -88,9 +85,7 @@ export function ToolPartView({
         <div className="max-w-[85%] px-4 py-2 rounded-xl ring-1 ring-border bg-card">
           <div className="flex items-center gap-2">
             <CheckCircleIcon size={14} className="text-green-500" />
-            <span className="text-xs font-medium text-muted-foreground">
-              {summary ?? toolName}
-            </span>
+            <span className="text-xs font-medium text-muted-foreground">{summary ?? toolName}</span>
           </div>
         </div>
       </div>
@@ -105,9 +100,7 @@ export function ToolPartView({
         <div className="max-w-[85%] px-4 py-3 rounded-xl ring-2 ring-yellow-500 bg-card">
           <div className="flex items-center gap-2 mb-2">
             <GearIcon size={14} className="text-yellow-500" />
-            <span className="text-sm font-semibold">
-              Approval needed: {toolName}
-            </span>
+            <span className="text-sm font-semibold">Approval needed: {toolName}</span>
           </div>
           <div className="font-mono mb-3">
             <span className="text-xs text-muted-foreground">
@@ -147,17 +140,14 @@ export function ToolPartView({
   // Rejected / denied
   if (
     part.state === "output-denied" ||
-    ("approval" in part &&
-      (part.approval as { approved?: boolean })?.approved === false)
+    ("approval" in part && (part.approval as { approved?: boolean })?.approved === false)
   ) {
     return (
       <div className="flex justify-start">
         <div className="max-w-[85%] px-4 py-2.5 rounded-xl ring-1 ring-border bg-card">
           <div className="flex items-center gap-2">
             <XCircleIcon size={14} className="text-destructive" />
-            <span className="text-xs font-semibold text-muted-foreground">
-              {toolName}
-            </span>
+            <span className="text-xs font-semibold text-muted-foreground">{toolName}</span>
             <Badge variant="secondary">Rejected</Badge>
           </div>
         </div>
@@ -172,9 +162,7 @@ export function ToolPartView({
         <div className="max-w-[85%] px-4 py-2.5 rounded-xl ring-1 ring-border bg-card">
           <div className="flex items-center gap-2">
             <GearIcon size={14} className="text-muted-foreground animate-spin" />
-            <span className="text-xs text-muted-foreground">
-              Running {toolName}...
-            </span>
+            <span className="text-xs text-muted-foreground">Running {toolName}...</span>
           </div>
         </div>
       </div>

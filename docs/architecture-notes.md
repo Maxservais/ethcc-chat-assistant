@@ -83,32 +83,34 @@ Via Cloudflare [Service Bindings](https://developers.cloudflare.com/workers/runt
 
 ```ts
 // Then in user-application server functions:
-env.DATA_SERVICE.fetch(new Request("https://internal/some-endpoint"))
+env.DATA_SERVICE.fetch(new Request("https://internal/some-endpoint"));
 // or direct RPC:
-env.DATA_SERVICE.someMethod(args)
+env.DATA_SERVICE.someMethod(args);
 ```
 
 ### Shared code (packages/data-ops)
 
 Not a runtime service — it's a build-time dependency bundled into both workers:
+
 - `@repo/data-ops/auth/server` — auth setup (better-auth + Drizzle)
 - `@repo/data-ops/database/setup` — PlanetScale connection
 - `@repo/data-ops/zod-schema/*` — shared validation schemas
 
 Both workers import from it. Root deploy scripts ensure it's built first:
+
 ```
 "deploy:user-application": "pnpm run build:data-ops && pnpm run --filter user-application deploy"
 ```
 
 ## Why Our Setup is Different
 
-| | Our app | Backpine |
-|---|---|---|
-| **Workers** | 1 (does everything) | 2 (frontend + backend) |
-| **Durable Objects** | In the same worker | In data-service worker |
-| **Communication** | Direct (same process) | Service bindings (cross-worker RPC) |
-| **Complexity** | Simpler | More separation of concerns |
-| **Deploy** | Single `wrangler deploy` | Two separate deploys |
+|                     | Our app                  | Backpine                            |
+| ------------------- | ------------------------ | ----------------------------------- |
+| **Workers**         | 1 (does everything)      | 2 (frontend + backend)              |
+| **Durable Objects** | In the same worker       | In data-service worker              |
+| **Communication**   | Direct (same process)    | Service bindings (cross-worker RPC) |
+| **Complexity**      | Simpler                  | More separation of concerns         |
+| **Deploy**          | Single `wrangler deploy` | Two separate deploys                |
 
 Our approach is simpler and works well when the backend is primarily the AI agent. The backpine approach makes sense when:
 

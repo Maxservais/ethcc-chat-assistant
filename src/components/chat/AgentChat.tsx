@@ -60,10 +60,8 @@ function Chat() {
   const [connected, setConnected] = useState(false);
   const [input, setInput] = useState("");
   const [showDebug, setShowDebug] = useState(false);
-  const [workflowProgress, setWorkflowProgress] =
-    useState<WorkflowProgress | null>(null);
-  const [twitterProfile, setTwitterProfile] =
-    useState<TwitterProfile | null>(null);
+  const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
+  const [twitterProfile, setTwitterProfile] = useState<TwitterProfile | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [sessionId] = useState(getSessionId);
@@ -73,10 +71,7 @@ function Chat() {
     name: sessionId,
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
-    onError: useCallback(
-      (error: Event) => console.error("WebSocket error:", error),
-      []
-    ),
+    onError: useCallback((error: Event) => console.error("WebSocket error:", error), []),
     onMessage: useCallback((event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
@@ -99,17 +94,11 @@ function Chat() {
     }, []),
   });
 
-  const {
-    messages,
-    sendMessage,
-    clearHistory,
-    addToolApprovalResponse,
-    stop,
-    status,
-  } = useAgentChat({
-    agent,
-    // TODO: add onToolCall handler when getUserTimezone tool is added to the agent
-  });
+  const { messages, sendMessage, clearHistory, addToolApprovalResponse, stop, status } =
+    useAgentChat({
+      agent,
+      // TODO: add onToolCall handler when getUserTimezone tool is added to the agent
+    });
 
   const isStreaming = status === "streaming" || status === "submitted";
 
@@ -128,7 +117,7 @@ function Chat() {
     if (!text || isStreaming) return;
     setInput("");
     setWorkflowProgress(null);
-    sendMessage({ role: "user", parts: [{ type: "text", text }] });
+    void sendMessage({ role: "user", parts: [{ type: "text", text }] });
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -173,11 +162,15 @@ function Chat() {
                 aria-label="Toggle debug mode"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={() => {
-              clearHistory();
-              setTwitterProfile(null);
-              setWorkflowProgress(null);
-            }}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                clearHistory();
+                setTwitterProfile(null);
+                setWorkflowProgress(null);
+              }}
+            >
               <TrashIcon size={16} />
               <span className="hidden sm:inline">Clear</span>
             </Button>
@@ -193,11 +186,10 @@ function Chat() {
               {/* Welcome message from the assistant */}
               <div className="flex justify-start">
                 <div className="max-w-[90%] sm:max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md bg-background text-foreground leading-relaxed space-y-1">
-                  <p className="text-sm font-medium">
-                    Hey! I'm your EthCC[8] agenda planner.
-                  </p>
+                  <p className="text-sm font-medium">Hey! I'm your EthCC[8] agenda planner.</p>
                   <p className="text-sm text-muted-foreground">
-                    Share your Twitter/X profile and I'll analyze your interests to find the best talks for you. Or just tell me what topics you're into.
+                    Share your Twitter/X profile and I'll analyze your interests to find the best
+                    talks for you. Or just tell me what topics you're into.
                   </p>
                 </div>
               </div>
@@ -223,8 +215,7 @@ function Chat() {
 
           {messages.map((message: UIMessage, index: number) => {
             const isUser = message.role === "user";
-            const isLastAssistant =
-              message.role === "assistant" && index === messages.length - 1;
+            const isLastAssistant = message.role === "assistant" && index === messages.length - 1;
 
             return (
               <div key={message.id} className="space-y-2">
@@ -246,9 +237,7 @@ function Chat() {
                 {/* Reasoning parts */}
                 {message.parts
                   .filter(
-                    (part) =>
-                      part.type === "reasoning" &&
-                      (part as { text?: string }).text?.trim()
+                    (part) => part.type === "reasoning" && (part as { text?: string }).text?.trim(),
                   )
                   .map((part, i) => {
                     const reasoning = part as {
@@ -262,22 +251,13 @@ function Chat() {
                         <details className="max-w-[90%] sm:max-w-[85%] w-full" open={!isDone}>
                           <summary className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-sm select-none">
                             <BrainIcon size={14} className="text-purple-500" />
-                            <span className="font-medium text-foreground">
-                              Reasoning
-                            </span>
+                            <span className="font-medium text-foreground">Reasoning</span>
                             {isDone ? (
-                              <span className="text-xs text-green-500">
-                                Complete
-                              </span>
+                              <span className="text-xs text-green-500">Complete</span>
                             ) : (
-                              <span className="text-xs text-primary">
-                                Thinking...
-                              </span>
+                              <span className="text-xs text-primary">Thinking...</span>
                             )}
-                            <CaretDownIcon
-                              size={14}
-                              className="ml-auto text-muted-foreground"
-                            />
+                            <CaretDownIcon size={14} className="ml-auto text-muted-foreground" />
                           </summary>
                           <pre className="mt-2 px-3 py-2 rounded-lg bg-muted text-xs text-foreground whitespace-pre-wrap overflow-auto max-h-64">
                             {reasoning.text}
@@ -306,8 +286,7 @@ function Chat() {
 
                     // Render the Twitter profile card inline with the profile message
                     const isProfileMessage =
-                      twitterProfile &&
-                      message.id === `twitter-profile-${twitterProfile.handle}`;
+                      twitterProfile && message.id === `twitter-profile-${twitterProfile.handle}`;
                     if (isProfileMessage) {
                       return (
                         <div key={i} className="space-y-3">
@@ -332,11 +311,7 @@ function Chat() {
                               </p>
                               <div className="flex flex-wrap gap-1.5">
                                 {twitterProfile.interests.map((interest) => (
-                                  <Badge
-                                    key={interest}
-                                    variant="outline"
-                                    className="text-xs"
-                                  >
+                                  <Badge key={interest} variant="outline" className="text-xs">
                                     {interest}
                                   </Badge>
                                 ))}
@@ -346,7 +321,8 @@ function Chat() {
                           {/* Follow-up prompt as a normal assistant bubble */}
                           <div className="flex justify-start">
                             <div className="max-w-[90%] sm:max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md bg-background text-foreground text-sm leading-relaxed">
-                              Want me to find EthCC talks matching these interests? You can also refine or add topics.
+                              Want me to find EthCC talks matching these interests? You can also
+                              refine or add topics.
                             </div>
                           </div>
                         </div>
@@ -377,15 +353,11 @@ function Chat() {
               <div className="max-w-[90%] sm:max-w-[85%] px-4 py-3 rounded-xl bg-background border border-border space-y-2">
                 <div className="flex items-center gap-2">
                   <XLogoIcon size={16} className="text-foreground" />
-                  <span className="text-sm font-medium text-foreground">
-                    Twitter Analysis
-                  </span>
+                  <span className="text-sm font-medium text-foreground">Twitter Analysis</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <SpinnerIcon size={14} className="text-primary animate-spin" />
-                  <span className="text-sm text-muted-foreground">
-                    {workflowProgress.message}
-                  </span>
+                  <span className="text-sm text-muted-foreground">{workflowProgress.message}</span>
                 </div>
                 {workflowProgress.percent != null && (
                   <div className="w-full bg-muted rounded-full h-1.5">
