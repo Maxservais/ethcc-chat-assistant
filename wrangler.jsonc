@@ -15,7 +15,8 @@
     "binding": "AI",
     "remote": true,
   },
-  "worker_loaders": [{ "binding": "LOADER" }],
+  // TODO: Re-enable when worker_loader binding is available on our account
+  // "worker_loaders": [{ "binding": "LOADER" }],
   "kv_namespaces": [
     {
       "binding": "ETHCC_CACHE",

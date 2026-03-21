@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClockIcon, MapPinIcon, UserIcon, CalendarIcon } from "@phosphor-icons/react";
-import type { BaseComponentProps } from "@json-render/react";
 
 /** Track name → color mapping for badges */
 const TRACK_COLORS: Record<string, string> = {
@@ -57,8 +56,7 @@ export interface TalkCardProps {
   slug: string | null;
 }
 
-export function TalkCard({ props }: BaseComponentProps<TalkCardProps>) {
-  const { title, speakers, track, date, time, room, description, slug } = props;
+export function TalkCard({ title, speakers, track, date, time, room, description, slug }: TalkCardProps) {
 
   // Parse speakers string "Name (Org), Name2 (Org2)" into structured data
   const parsedSpeakers = speakers

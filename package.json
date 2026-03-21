@@ -16,9 +16,6 @@
     "@cloudflare/ai-chat": "^0.1.9",
     "@cloudflare/codemode": "^0.2.2",
     "@cloudflare/vite-plugin": "^1.29.1",
-    "@json-render/core": "^0.14.1",
-    "@json-render/react": "^0.14.1",
-    "@json-render/shadcn": "^0.14.1",
     "@phosphor-icons/react": "^2.1.10",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-devtools": "^0.10.0",
@@ -29,7 +26,7 @@
     "@tanstack/react-router-ssr-query": "^1.166.9",
     "@tanstack/react-start": "^1.166.17",
     "@tanstack/router-plugin": "^1.166.14",
-    "agents": "^0.7.7",
+    "agents": "^0.7.9",
     "ai": "^6.0.116",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -59,7 +56,7 @@
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vite-plus": "latest",
     "vitest": "npm:@voidzero-dev/vite-plus-test@latest",
-    "wrangler": "^4.75.0"
+    "wrangler": "^4.76.0"
   },
   "packageManager": "pnpm@10.32.1",
   "pnpm": {

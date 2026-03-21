@@ -1,25 +1,43 @@
-import {
-  useJsonRenderMessage,
-  Renderer,
-  StateProvider,
-  VisibilityProvider,
-  ActionProvider,
-} from "@json-render/react";
+import { memo } from "react";
 import { Streamdown } from "streamdown";
-import { registry } from "@/lib/json-render-registry";
-import type { DataPart } from "@json-render/react";
+import { TalkCard } from "./TalkCard";
+import type { TalkCardProps } from "./TalkCard";
+
+interface AssistantMessagePart {
+  type: string;
+  text?: string;
+  data?: unknown;
+  [key: string]: unknown;
+}
 
 interface AssistantMessageProps {
-  parts: DataPart[];
+  parts: AssistantMessagePart[];
   isAnimating: boolean;
 }
 
 /**
- * Renders an assistant message, supporting both plain text (via Streamdown)
- * and rich UI specs (via json-render Renderer).
+ * Renders an assistant message: plain text via Streamdown,
+ * plus TalkCards rendered directly from tool output data.
  */
-export function AssistantMessage({ parts, isAnimating }: AssistantMessageProps) {
-  const { spec, text, hasSpec } = useJsonRenderMessage(parts);
+export const AssistantMessage = memo(function AssistantMessage({ parts, isAnimating }: AssistantMessageProps) {
+  // Collect text parts
+  const textParts = parts.filter(
+    (p) => p.type === "text" && p.text?.trim(),
+  );
+  const text = textParts.map((p) => p.text).join("");
+
+  // Collect talk cards from tool outputs
+  const talks: TalkCardProps[] = [];
+  for (const part of parts) {
+    if (part.type !== "tool-searchTalks" && part.type !== "tool-getTalkDetails")
+      continue;
+    const output = part.output as Record<string, unknown> | undefined;
+    if (!output) continue;
+    const talkList = (output.talks ?? (output.title ? [output] : [])) as TalkCardProps[];
+    for (const t of talkList) {
+      if (t.title) talks.push(t);
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -36,19 +54,15 @@ export function AssistantMessage({ parts, isAnimating }: AssistantMessageProps) 
           </div>
         </div>
       )}
-      {hasSpec && !isAnimating && (
+      {talks.length > 0 && (
         <div className="flex justify-start">
-          <div className="max-w-[90%] sm:max-w-[85%] w-full">
-            <StateProvider>
-              <VisibilityProvider>
-                <ActionProvider handlers={{}}>
-                  <Renderer spec={spec} registry={registry} />
-                </ActionProvider>
-              </VisibilityProvider>
-            </StateProvider>
+          <div className="max-w-[90%] sm:max-w-[85%] w-full space-y-3">
+            {talks.map((talk) => (
+              <TalkCard key={talk.slug ?? talk.title} {...talk} />
+            ))}
           </div>
         </div>
       )}
     </div>
   );
-}
+});

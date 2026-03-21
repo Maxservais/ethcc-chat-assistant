@@ -8,7 +8,7 @@ declare namespace Cloudflare {
   }
   interface Env {
     ETHCC_CACHE: KVNamespace;
-    LOADER: WorkerLoader;
+    // LOADER: WorkerLoader; // TODO: Re-enable when worker_loader binding is available
     AI: Ai;
     APIFY_API_TOKEN: string;
     ChatAgent: DurableObjectNamespace<import("./src/server/entry").ChatAgent>;

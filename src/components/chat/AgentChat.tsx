@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useState, useEffect, useRef } from "react";
+import { useScrollToBottom } from "@/hooks/use-scroll-to-bottom";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { isToolUIPart } from "ai";
@@ -65,7 +66,7 @@ function Chat() {
   const [showDebug, setShowDebug] = useState(false);
   const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
   const [twitterProfile, setTwitterProfile] = useState<TwitterProfile | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { containerRef, scrollToBottom, reset: resetScroll } = useScrollToBottom();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [sessionId] = useState(getSessionId);
 
@@ -104,9 +105,11 @@ function Chat() {
 
   const isStreaming = status === "streaming" || status === "submitted";
 
+  // Scroll to bottom when user sends a message
+  const messageCount = messages.length;
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    scrollToBottom();
+  }, [messageCount, scrollToBottom]);
 
   useEffect(() => {
     if (!isStreaming && textareaRef.current) {
@@ -171,6 +174,7 @@ function Chat() {
                 clearHistory();
                 setTwitterProfile(null);
                 setWorkflowProgress(null);
+                resetScroll();
               }}
               className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium text-white/80 hover:text-white border border-white/20 hover:border-white/40 rounded-full transition-colors cursor-pointer"
             >
@@ -182,7 +186,7 @@ function Chat() {
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={containerRef} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-3 sm:px-5 py-4 sm:py-6 space-y-4 sm:space-y-5">
           {messages.length === 0 && (
             <div className="space-y-6 pt-4 sm:pt-8">
@@ -340,7 +344,7 @@ function Chat() {
                       );
                     })}
 
-                {/* Assistant message — text + rich UI via json-render */}
+                {/* Assistant message — text + talk cards from tool output */}
                 {!isUser &&
                   (() => {
                     const isProfileMessage =
@@ -443,7 +447,7 @@ function Chat() {
               );
             })()}
 
-          <div ref={messagesEndRef} />
+          <div />
         </div>
       </div>
 

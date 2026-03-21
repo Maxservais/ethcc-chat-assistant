@@ -18,7 +18,7 @@ export interface EthccTalk {
   id: string;
   slug: string;
   title: string;
-  start: string; // ISO timestamp e.g. "2025-06-30T15:25:00"
+  start: string; // ISO timestamp e.g. "2026-03-30T15:25:00"
   end: string;
   resourceId: string; // stage slug e.g. "kelly-stage"
   extendedProps: {
@@ -33,7 +33,7 @@ export interface EthccTalk {
 
 export interface EthccDay {
   id: string;
-  date: string; // "2025-06-30"
+  date: string; // "2026-03-30"
 }
 
 export interface EthccLocation {
@@ -57,7 +57,9 @@ async function trpcQuery<T>(
 
   const res = await fetch(url.toString());
   if (!res.ok) {
-    throw new Error(`EthCC API error: ${res.status} ${res.statusText} for ${router}.${procedure}`);
+    throw new Error(
+      `EthCC API error: ${res.status} ${res.statusText} for ${router}.${procedure}`,
+    );
   }
 
   const data = (await res.json()) as { result: { data: { json: T } } };
@@ -93,18 +95,25 @@ export async function fetchTalks(kv: KVNamespace): Promise<EthccTalk[]> {
   );
 }
 
-export async function fetchTalkBySlug(kv: KVNamespace, slug: string): Promise<EthccTalk | null> {
-  return cachedQuery(kv, `talk:${CONFERENCE_ID}:${EDITION_ID}:${slug}`, async () => {
-    try {
-      return await trpcQuery<EthccTalk>("talksRouter", "getTalk", {
-        slug,
-        conferenceId: CONFERENCE_ID,
-        editionId: EDITION_ID,
-      });
-    } catch {
-      return null;
-    }
-  });
+export async function fetchTalkBySlug(
+  kv: KVNamespace,
+  slug: string,
+): Promise<EthccTalk | null> {
+  return cachedQuery(
+    kv,
+    `talk:${CONFERENCE_ID}:${EDITION_ID}:${slug}`,
+    async () => {
+      try {
+        return await trpcQuery<EthccTalk>("talksRouter", "getTalk", {
+          slug,
+          conferenceId: CONFERENCE_ID,
+          editionId: EDITION_ID,
+        });
+      } catch {
+        return null;
+      }
+    },
+  );
 }
 
 export async function fetchDays(kv: KVNamespace): Promise<EthccDay[]> {
@@ -116,7 +125,9 @@ export async function fetchDays(kv: KVNamespace): Promise<EthccDay[]> {
   );
 }
 
-export async function fetchLocations(kv: KVNamespace): Promise<EthccLocation[]> {
+export async function fetchLocations(
+  kv: KVNamespace,
+): Promise<EthccLocation[]> {
   return cachedQuery(kv, `locations:${CONFERENCE_ID}:${EDITION_ID}`, () =>
     trpcQuery<EthccLocation[]>("talksRouter", "getLocations", {
       conferenceId: CONFERENCE_ID,
@@ -136,7 +147,10 @@ export function filterRealTalks(talks: EthccTalk[]): EthccTalk[] {
 
 /** Case-insensitive search: splits query into words (3+ chars), matches if ANY word hits.
  *  Title/track/speaker matches are weighted higher than description matches. */
-export function searchTalksLocal(talks: EthccTalk[], query: string): EthccTalk[] {
+export function searchTalksLocal(
+  talks: EthccTalk[],
+  query: string,
+): EthccTalk[] {
   const words = query
     .toLowerCase()
     .split(/\s+/)
@@ -181,7 +195,9 @@ export function searchTalksLocal(talks: EthccTalk[], query: string): EthccTalk[]
     })
     .filter(({ score }) => score > 0);
 
-  scored.sort((a, b) => b.score - a.score || a.talk.start.localeCompare(b.talk.start));
+  scored.sort(
+    (a, b) => b.score - a.score || a.talk.start.localeCompare(b.talk.start),
+  );
   return scored.map(({ talk }) => talk);
 }
 
@@ -190,10 +206,14 @@ export function searchTalksLocal(talks: EthccTalk[], query: string): EthccTalk[]
  * Talks matching more interests rank higher. Within same interest count,
  * talks are ranked by cumulative IDF-weighted score.
  */
-export function searchByInterests(talks: EthccTalk[], interests: string[]): EthccTalk[] {
-  if (interests.length === 0) return talks;
+/** Search by multiple interests, returning ranked talks + per-talk interest matches in a single pass */
+export function searchByInterests(
+  talks: EthccTalk[],
+  interests: string[],
+): { ranked: EthccTalk[]; interestMatches: Map<string, string[]> } {
+  if (interests.length === 0)
+    return { ranked: talks, interestMatches: new Map() };
 
-  // For each talk, track which interests it matched and its total score
   const talkScores = new Map<
     string,
     {
@@ -206,10 +226,8 @@ export function searchByInterests(talks: EthccTalk[], interests: string[]): Ethc
 
   for (const interest of interests) {
     const matches = searchTalksLocal(talks, interest);
-    // searchTalksLocal returns sorted by score, position implies score rank
     for (let i = 0; i < matches.length; i++) {
       const talk = matches[i]!;
-      // Score decreases with position: top result gets highest score
       const positionScore = matches.length - i;
       const existing = talkScores.get(talk.id);
       if (existing) {
@@ -228,7 +246,6 @@ export function searchByInterests(talks: EthccTalk[], interests: string[]): Ethc
   }
 
   const entries = [...talkScores.values()];
-  // Primary: more interests matched. Secondary: higher cumulative score. Tertiary: time.
   entries.sort(
     (a, b) =>
       b.interestCount - a.interestCount ||
@@ -236,29 +253,54 @@ export function searchByInterests(talks: EthccTalk[], interests: string[]): Ethc
       a.talk.start.localeCompare(b.talk.start),
   );
 
-  return entries.map((e) => e.talk);
-}
-
-/** Get matched interests for a talk (for display in results) */
-export function getInterestMatches(talks: EthccTalk[], interests: string[]): Map<string, string[]> {
-  const matches = new Map<string, string[]>();
-  for (const interest of interests) {
-    const results = searchTalksLocal(talks, interest);
-    for (const talk of results) {
-      const existing = matches.get(talk.id);
-      if (existing) {
-        existing.push(interest);
-      } else {
-        matches.set(talk.id, [interest]);
-      }
-    }
+  const interestMatches = new Map<string, string[]>();
+  for (const e of entries) {
+    interestMatches.set(e.talk.id, e.matchedInterests);
   }
-  return matches;
+
+  return { ranked: entries.map((e) => e.talk), interestMatches };
 }
 
+/** Common topic aliases → actual track names */
+const TOPIC_ALIASES: Record<string, string[]> = {
+  zk: ["Zero Tech & TEE", "Applied cryptography"],
+  "zero knowledge": ["Zero Tech & TEE", "Applied cryptography"],
+  snark: ["Zero Tech & TEE", "Applied cryptography"],
+  stark: ["Zero Tech & TEE", "Applied cryptography"],
+  privacy: ["Cypherpunk & Privacy"],
+  cypherpunk: ["Cypherpunk & Privacy"],
+  l2: ["Layer 2s"],
+  rollup: ["Layer 2s"],
+  rollups: ["Layer 2s"],
+  mev: ["Layer 2s", "DeFi"],
+  nft: ["Built on Ethereum"],
+  staking: ["EthStaker"],
+  rwa: ["RWA Tokenisation"],
+  tokenisation: ["RWA Tokenisation"],
+  tokenization: ["RWA Tokenisation"],
+  stablecoin: ["Stablecoins & Global Payments"],
+  stablecoins: ["Stablecoins & Global Payments"],
+  ai: ["AI Agents and Automation"],
+  agent: ["AI Agents and Automation"],
+  agents: ["AI Agents and Automation"],
+};
+
+/** Resolve a track filter — checks aliases first, then falls back to substring match */
 export function filterByTrack(talks: EthccTalk[], track: string): EthccTalk[] {
   const t = track.toLowerCase();
-  return talks.filter((talk) => talk.extendedProps.track.toLowerCase().includes(t));
+  // Check topic aliases — exact match first, then check if any alias is contained in the input
+  const resolvedTracks = TOPIC_ALIASES[t] ??
+    Object.entries(TOPIC_ALIASES).find(([key]) => t.includes(key))?.[1];
+  if (resolvedTracks) {
+    const trackSet = new Set(resolvedTracks.map((tr) => tr.toLowerCase()));
+    return talks.filter((talk) =>
+      trackSet.has(talk.extendedProps.track.toLowerCase()),
+    );
+  }
+  // Fall back to substring match against actual track names
+  return talks.filter((talk) =>
+    talk.extendedProps.track.toLowerCase().includes(t),
+  );
 }
 
 export function filterByDate(talks: EthccTalk[], date: string): EthccTalk[] {
@@ -275,6 +317,85 @@ export function getUniqueTracks(talks: EthccTalk[]): string[] {
 function timeFromISO(iso: string): string {
   const time = iso.split("T")[1];
   return time ? time.slice(0, 5) : "";
+}
+
+/** Track display name → ethcc.io agenda URL slug */
+const TRACK_SLUGS: Record<string, string> = {
+  "AI Agents and Automation": "ai-automation",
+  "Applied cryptography": "applied-cryptography",
+  "Block Fighters": "block-fighters",
+  "Breakout sessions": "breakout-sessions",
+  "Built on Ethereum": "built-on-ethereum",
+  "Core Protocol": "core-protocol",
+  "Cypherpunk & Privacy": "cypherpunk-privacy",
+  DeFi: "defi",
+  "DeFi Day": "defi-day",
+  EthStaker: "ethstaker",
+  "If you know you know": "if-you-know-you-know",
+  Kryptosphere: "kryptosphere",
+  "Layer 2s": "layer-2s",
+  "Product & Marketers": "product-marketers",
+  "Regulation & Compliance": "regulation-compliance",
+  Research: "research",
+  "RWA Tokenisation": "rwa-tokenisation",
+  Security: "security",
+  "Stablecoins & Global Payments": "stablecoins",
+  TERSE: "terse",
+  "The Unexpected": "unknown",
+  "Zero Tech & TEE": "zk-crypto",
+};
+
+/** Resolve a track display name to its ethcc.io URL slug */
+function trackToSlug(track: string): string | undefined {
+  const slug =
+    TRACK_SLUGS[track] ??
+    TRACK_SLUGS[
+      Object.keys(TRACK_SLUGS).find(
+        (k) => k.toLowerCase() === track.toLowerCase(),
+      ) ?? ""
+    ];
+  return slug || undefined;
+}
+
+/** Find the date with the most talks */
+function mostPopularDate(talks: EthccTalk[]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const t of talks) {
+    const d = t.start.split("T")[0]!;
+    counts.set(d, (counts.get(d) ?? 0) + 1);
+  }
+  let best: string | undefined;
+  let bestCount = 0;
+  for (const [d, c] of counts) {
+    if (c > bestCount) {
+      best = d;
+      bestCount = c;
+    }
+  }
+  return best;
+}
+
+/** Build an ethcc.io agenda URL with optional date and track filters */
+export function buildAgendaUrl(options?: {
+  date?: string;
+  track?: string;
+  tracks?: string[];
+  talks?: EthccTalk[];
+}): string {
+  const params = new URLSearchParams({ viewMode: "list" });
+  // ethcc.io defaults to Day 1 if no date — pick the day with most matches instead
+  const date = options?.date ?? (options?.talks ? mostPopularDate(options.talks) : undefined);
+  if (date) params.set("date", date);
+  if (options?.track) {
+    const slug = trackToSlug(options.track);
+    if (slug) params.set("tracks", slug);
+  } else if (options?.tracks && options.tracks.length > 0) {
+    const slugs = options.tracks
+      .map(trackToSlug)
+      .filter((s): s is string => !!s);
+    if (slugs.length > 0) params.set("tracks", [...new Set(slugs)].join(","));
+  }
+  return `https://ethcc.io/ethcc-9/agenda?${params}`;
 }
 
 /** Format a talk for display in AI responses (compact, saves tokens) */
