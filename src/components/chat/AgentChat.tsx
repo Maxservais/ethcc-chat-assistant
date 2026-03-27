@@ -397,8 +397,8 @@ function Chat() {
               }}
               placeholder="Ask about EthCC[9] talks, speakers, tracks..."
               disabled={!connected}
-              rows={1}
-              className="flex-1 ring-0! focus-visible:ring-0! shadow-none! bg-transparent! outline-none! border-none! resize-none max-h-40 min-h-0 text-sm"
+              rows={3}
+              className="flex-1 ring-0! focus-visible:ring-0! shadow-none! bg-transparent! outline-none! border-none! resize-none max-h-40 min-h-0 text-base sm:text-sm"
             />
             {isStreaming ? (
               <button
