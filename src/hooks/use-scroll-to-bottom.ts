@@ -1,105 +1,49 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
+/**
+ * Scroll hook inspired by Claude's web app behavior:
+ * - When user sends a message, scroll their message to the top of the viewport
+ * - Do NOT auto-scroll to bottom as content streams in
+ * - User controls scrolling from there
+ * - "Scroll to bottom" button appears when not at bottom
+ */
 export function useScrollToBottom() {
   const containerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
-  const isAtBottomRef = useRef(true);
-  const isUserScrollingRef = useRef(false);
 
-  useEffect(() => {
-    isAtBottomRef.current = isAtBottom;
-  }, [isAtBottom]);
-
-  const checkIfAtBottom = useCallback(() => {
-    if (!containerRef.current) {
-      return true;
-    }
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    return scrollTop + clientHeight >= scrollHeight - 100;
-  }, []);
-
+  // Scroll to absolute bottom (for the button)
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    if (!containerRef.current) {
-      return;
-    }
+    if (!containerRef.current) return;
     containerRef.current.scrollTo({
       top: containerRef.current.scrollHeight,
       behavior,
     });
+    setIsAtBottom(true);
   }, []);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      return;
-    }
-
-    let scrollTimeout: ReturnType<typeof setTimeout>;
-
-    const handleScroll = () => {
-      isUserScrollingRef.current = true;
-      clearTimeout(scrollTimeout);
-
-      const atBottom = checkIfAtBottom();
-      setIsAtBottom(atBottom);
-      isAtBottomRef.current = atBottom;
-
-      scrollTimeout = setTimeout(() => {
-        isUserScrollingRef.current = false;
-      }, 150);
-    };
-
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      container.removeEventListener("scroll", handleScroll);
-      clearTimeout(scrollTimeout);
-    };
-  }, [checkIfAtBottom]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      return;
-    }
-
-    const scrollIfNeeded = () => {
-      if (isAtBottomRef.current && !isUserScrollingRef.current) {
-        requestAnimationFrame(() => {
-          container.scrollTo({
-            top: container.scrollHeight,
-            behavior: "instant",
-          });
-          setIsAtBottom(true);
-          isAtBottomRef.current = true;
-        });
-      }
-    };
-
-    const mutationObserver = new MutationObserver(scrollIfNeeded);
-    mutationObserver.observe(container, {
-      childList: true,
-      subtree: true,
-      characterData: true,
+  // Scroll a specific element into view (for scrolling user message to top)
+  const scrollToElement = useCallback((el: HTMLElement, behavior: ScrollBehavior = "smooth") => {
+    if (!containerRef.current) return;
+    const containerTop = containerRef.current.getBoundingClientRect().top;
+    const elTop = el.getBoundingClientRect().top;
+    const offset = elTop - containerTop + containerRef.current.scrollTop;
+    containerRef.current.scrollTo({
+      top: offset - 16, // small padding above
+      behavior,
     });
+  }, []);
 
-    const resizeObserver = new ResizeObserver(scrollIfNeeded);
-    resizeObserver.observe(container);
-
-    for (const child of container.children) {
-      resizeObserver.observe(child);
-    }
-
-    return () => {
-      mutationObserver.disconnect();
-      resizeObserver.disconnect();
-    };
+  // Track scroll position to show/hide "scroll to bottom" button
+  const handleScroll = useCallback(() => {
+    if (!containerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+    const atBottom = scrollTop + clientHeight >= scrollHeight - 100;
+    setIsAtBottom(atBottom);
   }, []);
 
   const reset = useCallback(() => {
     setIsAtBottom(true);
-    isAtBottomRef.current = true;
-    isUserScrollingRef.current = false;
   }, []);
 
   return {
@@ -107,6 +51,8 @@ export function useScrollToBottom() {
     endRef,
     isAtBottom,
     scrollToBottom,
+    scrollToElement,
+    handleScroll,
     reset,
   };
 }

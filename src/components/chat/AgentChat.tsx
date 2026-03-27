@@ -2,7 +2,6 @@ import { Suspense, useCallback, useState, useEffect, useRef } from "react";
 import { useScrollToBottom } from "@/hooks/use-scroll-to-bottom";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
-import { isToolUIPart } from "ai";
 import type { UIMessage } from "ai";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -19,7 +18,6 @@ import {
   CheckCircleIcon,
 } from "@phosphor-icons/react";
 
-import { ToolPartView } from "./ToolPartView";
 import { AssistantMessage } from "./AssistantMessage";
 
 const STARTER_PROMPTS = [
@@ -66,8 +64,9 @@ function Chat() {
   const [showDebug, setShowDebug] = useState(false);
   const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
   const [twitterProfile, setTwitterProfile] = useState<TwitterProfile | null>(null);
-  const { containerRef, scrollToBottom, reset: resetScroll } = useScrollToBottom();
+  const { containerRef, endRef, isAtBottom, scrollToBottom, scrollToElement, handleScroll, reset: resetScroll } = useScrollToBottom();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastUserMsgRef = useRef<HTMLDivElement>(null);
   const [sessionId] = useState(getSessionId);
 
   const agent = useAgent({
@@ -105,17 +104,24 @@ function Chat() {
 
   const isStreaming = status === "streaming" || status === "submitted";
 
-  // Scroll to bottom when user sends a message
-  const messageCount = messages.length;
-  useEffect(() => {
-    scrollToBottom();
-  }, [messageCount, scrollToBottom]);
-
   useEffect(() => {
     if (!isStreaming && textareaRef.current) {
       textareaRef.current.focus();
     }
   }, [isStreaming]);
+
+  // Scroll user message to top of viewport when they send (Claude-style)
+  const prevStatusRef = useRef(status);
+  useEffect(() => {
+    if (status === "submitted" && prevStatusRef.current !== "submitted") {
+      requestAnimationFrame(() => {
+        if (lastUserMsgRef.current) {
+          scrollToElement(lastUserMsgRef.current, "instant");
+        }
+      });
+    }
+    prevStatusRef.current = status;
+  }, [status, scrollToElement]);
 
   const send = useCallback(() => {
     const text = input.trim();
@@ -129,7 +135,7 @@ function Chat() {
   }, [input, isStreaming, sendMessage]);
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="relative flex flex-col h-full bg-background">
       {/* Header */}
       <header className="bg-ethcc-navy text-white">
         <div className="max-w-3xl mx-auto px-3 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2">
@@ -186,7 +192,7 @@ function Chat() {
       </header>
 
       {/* Messages */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto">
+      <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-3 sm:px-5 py-4 sm:py-6 space-y-4 sm:space-y-5">
           {messages.length === 0 && (
             <div className="space-y-6 pt-4 sm:pt-8">
@@ -222,113 +228,22 @@ function Chat() {
 
           {messages.map((message: UIMessage, index: number) => {
             const isUser = message.role === "user";
-            const isLastAssistant = message.role === "assistant" && index === messages.length - 1;
+            const isLastMessage = index === messages.length - 1;
+
+            // Track last user message for scroll-into-view
+            const isLastUser = isUser && (
+              index === messages.length - 1 ||
+              (index === messages.length - 2 && messages[messages.length - 1]?.role === "assistant")
+            );
 
             return (
-              <div key={message.id} className="space-y-2">
+              <div key={message.id} ref={isLastUser ? lastUserMsgRef : undefined} className="space-y-2">
                 {showDebug && (
                   <pre className="text-[11px] text-muted-foreground bg-muted rounded-lg p-3 overflow-auto max-h-64">
                     {JSON.stringify(message, null, 2)}
                   </pre>
                 )}
 
-                {/* Grouped thinking section — reasoning + tool calls in one collapsible */}
-                {!isUser &&
-                  (() => {
-                    const reasoningParts = message.parts.filter(
-                      (part) =>
-                        part.type === "reasoning" && (part as { text?: string }).text?.trim(),
-                    );
-                    const toolParts = message.parts.filter(isToolUIPart);
-                    // Tools that must stay visible outside the collapsible
-                    const hasCalendarOutput = (p: (typeof toolParts)[number]) => {
-                      if (!isToolUIPart(p) || p.state !== "output-available") return false;
-                      const output = p.output as Record<string, unknown> | undefined;
-                      if (!output) return false;
-                      // Unwrap codemode { code, result, logs } structure
-                      const data =
-                        output.result &&
-                        typeof output.result === "object" &&
-                        "code" in output &&
-                        "logs" in output
-                          ? (output.result as Record<string, unknown>)
-                          : output;
-                      return !!data?.icsContent;
-                    };
-                    const isProminent = (p: (typeof toolParts)[number]) =>
-                      (isToolUIPart(p) && p.state === "approval-requested") || hasCalendarOutput(p);
-                    const prominentParts = toolParts.filter(isProminent);
-                    const nonApprovalToolParts = toolParts.filter((p) => !isProminent(p));
-                    const hasThinkingContent =
-                      reasoningParts.length > 0 || nonApprovalToolParts.length > 0;
-                    const allReasoningDone = reasoningParts.every(
-                      (p) => (p as { state?: string }).state === "done" || !isStreaming,
-                    );
-                    const allToolsDone = nonApprovalToolParts.every(
-                      (p) => isToolUIPart(p) && p.state === "output-available",
-                    );
-                    const isThinkingDone = allReasoningDone && allToolsDone;
-
-                    return (
-                      <>
-                        {/* Prominent tools (approvals, calendar) stay visible */}
-                        {prominentParts.map((part) => (
-                          <ToolPartView
-                            key={(part as { toolCallId: string }).toolCallId}
-                            part={part}
-                            addToolApprovalResponse={addToolApprovalResponse}
-                          />
-                        ))}
-                        {/* Everything else grouped into one collapsible */}
-                        {hasThinkingContent && (
-                          <details className="group">
-                            <summary className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground select-none hover:text-foreground transition-colors list-none [&::-webkit-details-marker]:hidden">
-                              <CaretDownIcon
-                                size={12}
-                                className="-rotate-90 transition-transform group-open:rotate-0"
-                              />
-                              {isThinkingDone ? "Thought" : "Thinking..."}
-                            </summary>
-                            <div className="mt-1.5 ml-5 space-y-1.5">
-                              {message.parts
-                                .filter(
-                                  (p) =>
-                                    (p.type === "reasoning" &&
-                                      (p as { text?: string }).text?.trim()) ||
-                                    (isToolUIPart(p) && !isProminent(p)),
-                                )
-                                .map((part, i) => {
-                                  if (part.type === "reasoning") {
-                                    const r = part as {
-                                      text: string;
-                                      state?: string;
-                                    };
-                                    return (
-                                      <pre
-                                        key={`r-${i}`}
-                                        className="px-3 py-2 rounded-lg bg-muted text-[11px] text-muted-foreground whitespace-pre-wrap overflow-auto max-h-48"
-                                      >
-                                        {r.text}
-                                      </pre>
-                                    );
-                                  }
-                                  // Tool part
-                                  return (
-                                    <ToolPartView
-                                      key={(part as { toolCallId: string }).toolCallId}
-                                      part={part}
-                                      addToolApprovalResponse={addToolApprovalResponse}
-                                    />
-                                  );
-                                })}
-                            </div>
-                          </details>
-                        )}
-                      </>
-                    );
-                  })()}
-
-                {/* User text parts */}
                 {isUser &&
                   message.parts
                     .filter((part) => part.type === "text")
@@ -344,15 +259,14 @@ function Chat() {
                       );
                     })}
 
-                {/* Assistant message — text + talk cards from tool output */}
                 {!isUser &&
                   (() => {
+                    // Special rendering for Twitter profile messages
                     const isProfileMessage =
                       twitterProfile && message.id === `twitter-profile-${twitterProfile.handle}`;
                     if (isProfileMessage) {
                       return (
                         <div className="space-y-3">
-                          {/* Profile card */}
                           <div className="flex justify-start">
                             <div className="max-w-[90%] sm:max-w-[85%] px-4 py-3 rounded-xl bg-card border border-border space-y-2">
                               <div className="flex items-center gap-2">
@@ -396,8 +310,9 @@ function Chat() {
 
                     return (
                       <AssistantMessage
-                        parts={message.parts}
-                        isAnimating={isLastAssistant && isStreaming}
+                        message={message}
+                        isLoading={isLastMessage && status === "streaming"}
+                        addToolApprovalResponse={addToolApprovalResponse}
                       />
                     );
                   })()}
@@ -429,27 +344,31 @@ function Chat() {
             </div>
           )}
 
-          {/* Thinking indicator — shown while waiting for assistant text */}
-          {isStreaming &&
-            (() => {
-              const lastMsg = messages[messages.length - 1];
-              const hasText =
-                lastMsg?.role === "assistant" &&
-                lastMsg.parts.some(
-                  (p) => p.type === "text" && (p as { text?: string }).text?.trim(),
-                );
-              if (hasText) return null;
-              return (
-                <div className="flex items-center gap-2 py-1">
-                  <SpinnerIcon size={16} className="text-ethcc-coral animate-spin" />
-                  <span className="text-sm text-muted-foreground italic">Thinking...</span>
-                </div>
-              );
-            })()}
+          {/* Thinking indicator — only when submitted and no assistant message yet */}
+          {status === "submitted" && messages.at(-1)?.role !== "assistant" && (
+            <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CaretDownIcon size={12} className="-rotate-90" />
+              Thinking...
+            </div>
+          )}
 
-          <div />
+          <div ref={endRef} className="min-h-[24px] shrink-0" />
         </div>
       </div>
+
+      {/* Scroll to bottom button */}
+      <button
+        type="button"
+        aria-label="Scroll to bottom"
+        className={`absolute bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] left-1/2 z-10 -translate-x-1/2 flex items-center rounded-full border border-border/50 bg-card/90 px-3.5 h-7 shadow-lg backdrop-blur-lg transition-all duration-200 ${
+          isAtBottom
+            ? "pointer-events-none scale-90 opacity-0"
+            : "pointer-events-auto scale-100 opacity-100"
+        }`}
+        onClick={() => scrollToBottom("smooth")}
+      >
+        <CaretDownIcon size={14} className="text-muted-foreground" />
+      </button>
 
       {/* Input */}
       <div className="border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
@@ -477,7 +396,7 @@ function Chat() {
                 el.style.height = `${el.scrollHeight}px`;
               }}
               placeholder="Ask about EthCC[9] talks, speakers, tracks..."
-              disabled={!connected || isStreaming}
+              disabled={!connected}
               rows={1}
               className="flex-1 ring-0! focus-visible:ring-0! shadow-none! bg-transparent! outline-none! border-none! resize-none max-h-40 min-h-0 text-sm"
             />
@@ -503,7 +422,7 @@ function Chat() {
           </div>
         </form>
         <p className="text-center text-[11px] text-muted-foreground/60 pb-1">
-          Made with love by{" "}
+          Made with ❤️ by{" "}
           <a
             href="https://x.com/MaximeServais77"
             target="_blank"
