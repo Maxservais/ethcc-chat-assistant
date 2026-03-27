@@ -395,9 +395,9 @@ function Chat() {
                 el.style.height = "auto";
                 el.style.height = `${el.scrollHeight}px`;
               }}
-              placeholder="Ask about EthCC[9] talks, speakers, tracks..."
+              placeholder="Ask about EthCC[9]..."
               disabled={!connected}
-              rows={3}
+              rows={1}
               className="flex-1 ring-0! focus-visible:ring-0! shadow-none! bg-transparent! outline-none! border-none! resize-none max-h-40 min-h-0 text-base sm:text-sm"
             />
             {isStreaming ? (
