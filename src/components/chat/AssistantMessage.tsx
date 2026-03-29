@@ -22,10 +22,27 @@ function hasCalendarOutput(part: UIMessage["parts"][number]): boolean {
   return !!unwrapCodemode(output).icsContent;
 }
 
-/** Extract talk cards from a single tool output */
+/** Extract talk cards from tool output, including nested structures from codemode */
 function extractTalksFromOutput(output: Record<string, unknown>): TalkCardProps[] {
-  const talkList = (output.talks ?? (output.title ? [output] : [])) as TalkCardProps[];
-  return talkList.filter((t) => !!t.title);
+  // Direct .talks array (standard searchTalks output)
+  if (Array.isArray(output.talks)) {
+    return (output.talks as TalkCardProps[]).filter((t) => !!t.title);
+  }
+  // Single talk object (getTalkDetails output)
+  if (output.title) {
+    return [output as unknown as TalkCardProps];
+  }
+  // Nested results from codemode (e.g. {defi: {talks: [...]}, defiDay: {talks: [...]}})
+  const nested: TalkCardProps[] = [];
+  for (const val of Object.values(output)) {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      const sub = val as Record<string, unknown>;
+      if (Array.isArray(sub.talks)) {
+        nested.push(...(sub.talks as TalkCardProps[]).filter((t) => !!t.title));
+      }
+    }
+  }
+  return nested;
 }
 
 interface AssistantMessageProps {
@@ -128,11 +145,7 @@ export function AssistantMessage({
         // Calendar download or approval → render prominently
         if (hasCalendarOutput(part) || part.state === "approval-requested") {
           return (
-            <ToolPartView
-              key={key}
-              part={part}
-              addToolApprovalResponse={addToolApprovalResponse}
-            />
+            <ToolPartView key={key} part={part} addToolApprovalResponse={addToolApprovalResponse} />
           );
         }
 
@@ -164,7 +177,6 @@ export function AssistantMessage({
 
         return null;
       })}
-
     </div>
   );
 }

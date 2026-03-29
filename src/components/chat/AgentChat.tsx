@@ -23,14 +23,17 @@ import { AssistantMessage } from "./AssistantMessage";
 const STARTER_PROMPTS = [
   { label: "Share my Twitter profile", prefill: "My Twitter is @" },
   {
-    label: "ZK proofs and privacy",
-    prefill: "I'm interested in ZK proofs and privacy",
+    label: "DeFi lending & credit",
+    prefill: "I'm interested in lending protocols and credit innovation in DeFi",
   },
-  { label: "DeFi talks", prefill: "Show me all DeFi talks" },
+  {
+    label: "ZK & privacy",
+    prefill: "What talks cover zero knowledge proofs or privacy-preserving tech?",
+  },
   { label: "Plan my Day 1", prefill: "Help me plan my schedule for Day 1" },
   {
-    label: "Layer 2 scaling",
-    prefill: "What talks are about Layer 2 scaling?",
+    label: "What's unique this year?",
+    prefill: "What are the most surprising or unconventional talks at EthCC this year?",
   },
 ];
 
@@ -64,7 +67,15 @@ function Chat() {
   const [showDebug, setShowDebug] = useState(false);
   const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
   const [twitterProfile, setTwitterProfile] = useState<TwitterProfile | null>(null);
-  const { containerRef, endRef, isAtBottom, scrollToBottom, scrollToElement, handleScroll, reset: resetScroll } = useScrollToBottom();
+  const {
+    containerRef,
+    endRef,
+    isAtBottom,
+    scrollToBottom,
+    scrollToElement,
+    handleScroll,
+    reset: resetScroll,
+  } = useScrollToBottom();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastUserMsgRef = useRef<HTMLDivElement>(null);
   const [sessionId] = useState(getSessionId);
@@ -231,13 +242,18 @@ function Chat() {
             const isLastMessage = index === messages.length - 1;
 
             // Track last user message for scroll-into-view
-            const isLastUser = isUser && (
-              index === messages.length - 1 ||
-              (index === messages.length - 2 && messages[messages.length - 1]?.role === "assistant")
-            );
+            const isLastUser =
+              isUser &&
+              (index === messages.length - 1 ||
+                (index === messages.length - 2 &&
+                  messages[messages.length - 1]?.role === "assistant"));
 
             return (
-              <div key={message.id} ref={isLastUser ? lastUserMsgRef : undefined} className="space-y-2">
+              <div
+                key={message.id}
+                ref={isLastUser ? lastUserMsgRef : undefined}
+                className="space-y-2"
+              >
                 {showDebug && (
                   <pre className="text-[11px] text-muted-foreground bg-muted rounded-lg p-3 overflow-auto max-h-64">
                     {JSON.stringify(message, null, 2)}

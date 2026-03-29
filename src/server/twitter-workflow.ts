@@ -115,21 +115,25 @@ export class TwitterAnalysisWorkflow extends AgentWorkflow<
 
         const result = await generateText({
           model: workersai("@cf/meta/llama-3.3-70b-instruct-fp8-fast"),
-          system: `You are analyzing a Twitter/X user's tweets to understand their professional interests, especially related to blockchain, crypto, Ethereum, and technology.
+          system: `You are analyzing tweets to extract SPECIFIC interests for recommending Ethereum conference talks.
 
-Extract the user's top interests and topics they care about. Focus on topics that would be relevant to attending an Ethereum conference (EthCC).
+Your goal is to find interests specific enough to differentiate between conference talks. Generic terms like "DeFi", "Ethereum", or "blockchain" are USELESS — everyone at the conference cares about those.
 
-Return ONLY a valid JSON object with this exact structure:
+Good interests: "Uniswap v4 hooks", "liquid staking", "ZK proof systems", "MEV protection", "account abstraction", "onchain governance", "formal verification", "stablecoin regulation", "cross-chain bridges", "restaking"
+Bad interests: "DeFi", "crypto", "Ethereum", "Web3", "blockchain technology", "smart contracts"
+
+Return ONLY a valid JSON object:
 {
-  "interests": ["topic1", "topic2", "topic3"],
-  "summary": "2-3 sentence summary of their professional interests"
+  "interests": ["specific topic 1", "specific topic 2"],
+  "summary": "2-3 sentence summary focusing on what SPECIFICALLY they care about"
 }
 
 Rules:
-- Maximum 10 interests
-- Each interest should be 1-4 words (e.g. "DeFi protocols", "Zero-knowledge proofs", "MEV", "Account abstraction")
-- The summary should be concise and professional
-- If the tweets aren't related to crypto/tech, still extract whatever professional interests are visible
+- 5-10 interests, each 1-4 words
+- Be as specific as possible — name protocols, standards, or sub-topics, not broad categories
+- If they tweet about Aave, say "lending protocols" or "Aave", not "DeFi"
+- If they tweet about rollups, say "ZK rollups" or "optimistic rollups", not "Layer 2"
+- If tweets aren't crypto-related, extract whatever specific professional interests are visible
 - Return ONLY the JSON, no markdown, no explanation`,
           prompt: `Tweets from @${handle}:\n\n${tweetTexts}`,
           maxOutputTokens: 512,

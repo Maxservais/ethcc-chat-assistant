@@ -56,8 +56,16 @@ export interface TalkCardProps {
   slug: string | null;
 }
 
-export function TalkCard({ title, speakers, track, date, time, room, description, slug }: TalkCardProps) {
-
+export function TalkCard({
+  title,
+  speakers,
+  track,
+  date,
+  time,
+  room,
+  description,
+  slug,
+}: TalkCardProps) {
   // Parse speakers string "Name (Org), Name2 (Org2)" into structured data
   const parsedSpeakers = speakers
     ? speakers.split(", ").map((s) => {
