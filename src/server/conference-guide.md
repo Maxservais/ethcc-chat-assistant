@@ -148,7 +148,7 @@ Other airports: Toulon-Hyères (1.5 hrs), Milan Malpensa (4 hrs)
 
 ### Restaurants
 
-- **Budget**: Bar du Marin, Aux Bons Enfants, La Piastra
+- **Budget**: Aux Bons Enfants, La Piastra
 - **Mid-range**: Le Bistrot Gourmand, L'Affable, La Brouette de Grand-Mère
 - **Fine dining**: La Palme d'Or (2 Michelin stars), Le Park 45, La Table du Chef Bruno Oger
 - **Bars**: Le Bar à Vin, Morrison's Lounge, Carlton Bar

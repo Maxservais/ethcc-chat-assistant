@@ -82,7 +82,11 @@ interface AgentState {
 export class ChatAgent extends AIChatAgent<Env, AgentState> {
   // --- Workflow lifecycle callbacks ---
 
-  async onWorkflowProgress(_workflowName: string, _instanceId: string, progress: unknown) {
+  async onWorkflowProgress(
+    _workflowName: string,
+    _instanceId: string,
+    progress: unknown,
+  ) {
     this.broadcast(
       JSON.stringify({
         type: "workflow-progress",
@@ -91,14 +95,20 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
     );
   }
 
-  async onWorkflowComplete(_workflowName: string, _instanceId: string, result?: unknown) {
+  async onWorkflowComplete(
+    _workflowName: string,
+    _instanceId: string,
+    result?: unknown,
+  ) {
     const data = result as TwitterWorkflowResult | undefined;
     if (!data) return;
 
     // Error result — workflow completed but with an error indicator
     if ("error" in data) {
       const err = data as TwitterWorkflowError;
-      this.broadcast(JSON.stringify({ type: "workflow-error", error: err.error }));
+      this.broadcast(
+        JSON.stringify({ type: "workflow-error", error: err.error }),
+      );
       const msgId = `twitter-error-${err.handle}`;
       if (!this.messages.some((m) => m.id === msgId)) {
         this.messages.push({
@@ -118,7 +128,9 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
 
     // Success result
     const profile = data as TwitterInterestProfile;
-    this.broadcast(JSON.stringify({ type: "workflow-complete", result: profile }));
+    this.broadcast(
+      JSON.stringify({ type: "workflow-complete", result: profile }),
+    );
     if (profile.interests) {
       const msgId = `twitter-profile-${profile.handle}`;
       if (!this.messages.some((m) => m.id === msgId)) {
@@ -138,8 +150,14 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
     }
   }
 
-  async onWorkflowError(_workflowName: string, _instanceId: string, error: string) {
-    console.log(`[agent] onWorkflowError called: instanceId=${_instanceId}, error="${error}"`);
+  async onWorkflowError(
+    _workflowName: string,
+    _instanceId: string,
+    error: string,
+  ) {
+    console.log(
+      `[agent] onWorkflowError called: instanceId=${_instanceId}, error="${error}"`,
+    );
     this.broadcast(JSON.stringify({ type: "workflow-error", error }));
 
     const msgId = `twitter-error-${_instanceId}`;
@@ -169,7 +187,9 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
     const userText =
       lastMessage?.role === "user"
         ? (lastMessage.parts
-            ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
+            ?.filter(
+              (p): p is { type: "text"; text: string } => p.type === "text",
+            )
             .map((p) => p.text)
             .join(" ") ?? "")
         : "";
@@ -205,7 +225,9 @@ When the user asks for recommendations or a personalized schedule, use these int
         inputSchema: z.object({
           handle: z
             .string()
-            .describe("Twitter/X handle without @ (e.g. 'MaximeServais77', 'vitalik')"),
+            .describe(
+              "Twitter/X handle without @ (e.g. 'MaximeServais77', 'vitalik')",
+            ),
         }),
         execute: async ({ handle }) => {
           this.setState({ ...this.state, twitterProfile: undefined });
@@ -221,7 +243,9 @@ When the user asks for recommendations or a personalized schedule, use these int
           query: z
             .string()
             .optional()
-            .describe("Free-text search (e.g. 'ZK proofs', 'DeFi yields', 'Vitalik')"),
+            .describe(
+              "Free-text search (e.g. 'ZK proofs', 'DeFi yields', 'Vitalik')",
+            ),
           interests: z
             .array(z.string())
             .optional()
@@ -237,8 +261,14 @@ When the user asks for recommendations or a personalized schedule, use these int
           date: z
             .string()
             .optional()
-            .describe("Filter by date in YYYY-MM-DD format (2026-03-30 to 2026-04-02)"),
-          limit: z.number().optional().default(10).describe("Max results to return (max 15)"),
+            .describe(
+              "Filter by date in YYYY-MM-DD format (2026-03-30 to 2026-04-02)",
+            ),
+          limit: z
+            .number()
+            .optional()
+            .default(10)
+            .describe("Max results to return (max 15)"),
           offset: z
             .number()
             .optional()
@@ -247,7 +277,14 @@ When the user asks for recommendations or a personalized schedule, use these int
               "Number of results to skip (for pagination). E.g. if you already showed 10, use offset:10 to get the next batch.",
             ),
         }),
-        execute: async ({ query, interests, track, date, limit: rawLimit, offset: rawOffset }) => {
+        execute: async ({
+          query,
+          interests,
+          track,
+          date,
+          limit: rawLimit,
+          offset: rawOffset,
+        }) => {
           const MAX_INLINE = 15;
           const limit = Math.min(rawLimit ?? MAX_INLINE, MAX_INLINE);
           const offset = rawOffset ?? 0;
@@ -260,7 +297,10 @@ When the user asks for recommendations or a personalized schedule, use these int
 
           // Multi-interest search: single pass returns ranked talks + per-talk interest matches
           if (interests && interests.length > 0) {
-            const { ranked, interestMatches } = searchByInterests(talks, interests);
+            const { ranked, interestMatches } = searchByInterests(
+              talks,
+              interests,
+            );
             talks = ranked;
             const paged = talks.slice(offset, offset + limit);
             const results = paged.map((t) => ({
@@ -283,7 +323,9 @@ When the user asks for recommendations or a personalized schedule, use these int
           talks.sort((a, b) => a.start.localeCompare(b.start));
 
           const paged = talks.slice(offset, offset + limit);
-          const results = paged.map((t) => formatTalkForAIWithRelevance(t, query));
+          const results = paged.map((t) =>
+            formatTalkForAIWithRelevance(t, query),
+          );
           if (results.length === 0)
             return "No talks found matching your criteria. Try broadening your search or check available tracks with getConferenceInfo.";
           return {
@@ -300,7 +342,9 @@ When the user asks for recommendations or a personalized schedule, use these int
         inputSchema: z.object({
           slug: z
             .string()
-            .describe("The talk slug (URL-friendly name, e.g. 'aave-v4-supercharged-defi')"),
+            .describe(
+              "The talk slug (URL-friendly name, e.g. 'aave-v4-supercharged-defi')",
+            ),
         }),
         execute: async ({ slug }) => {
           const talk = await fetchTalkBySlug(kv, slug);
@@ -324,7 +368,8 @@ When the user asks for recommendations or a personalized schedule, use these int
       }),
 
       getConferenceInfo: tool({
-        description: "Get EthCC conference information: available tracks, days, and venues.",
+        description:
+          "Get EthCC conference information: available tracks, days, and venues.",
         inputSchema: z.object({}),
         execute: async () => {
           const [talks, days, locations] = await Promise.all([
@@ -353,13 +398,19 @@ When the user asks for recommendations or a personalized schedule, use these int
             .array(
               z.object({
                 title: z.string(),
-                start: z.string().describe("ISO timestamp e.g. 2026-03-30T15:25:00"),
-                end: z.string().describe("ISO timestamp e.g. 2026-03-30T15:45:00"),
+                start: z
+                  .string()
+                  .describe("ISO timestamp e.g. 2026-03-30T15:25:00"),
+                end: z
+                  .string()
+                  .describe("ISO timestamp e.g. 2026-03-30T15:45:00"),
                 room: z.string().optional(),
                 speakers: z
                   .string()
                   .optional()
-                  .describe("Comma-separated speaker names, e.g. 'Alice (Org1), Bob (Org2)'"),
+                  .describe(
+                    "Comma-separated speaker names, e.g. 'Alice (Org1), Bob (Org2)'",
+                  ),
                 description: z.string().optional(),
               }),
             )
@@ -381,7 +432,9 @@ When the user asks for recommendations or a personalized schedule, use these int
               `DTSTART;TZID=Europe/Paris:${dtStart}`,
               `DTEND;TZID=Europe/Paris:${dtEnd}`,
               `SUMMARY:${escapeICS(talk.title)}`,
-              descParts.length ? `DESCRIPTION:${escapeICS(descParts.join("\n"))}` : "",
+              descParts.length
+                ? `DESCRIPTION:${escapeICS(descParts.join("\n"))}`
+                : "",
               `LOCATION:${escapeICS(`${talk.room ? `${talk.room}, ` : ""}Palais des Festivals, Cannes`)}`,
               "END:VEVENT",
             ]
@@ -412,14 +465,143 @@ When the user asks for recommendations or a personalized schedule, use these int
 
       getConferenceGuide: tool({
         description:
-          "Get the EthCC conference guide: venue floor map, FAQ (tickets, pricing, refunds, student tickets, EthVC), travel info (flights, trains, local transport), dining recommendations, and practical tips. Call this when the user asks about the venue, logistics, how to get there, where to eat, ticket prices, or any non-talk conference question.",
+          "Get the EthCC conference guide: venue floor map, FAQ (tickets, pricing, refunds, student tickets, EthVC), travel info (flights, trains, local transport), and practical tips. Call this when the user asks about the venue, logistics, how to get there, ticket prices, or any non-talk conference question. For restaurant recommendations, use getRestaurants instead.",
         inputSchema: z.object({}),
         execute: async () => {
           const r2 = this.env.ETHCC_ASSETS;
           const obj = await r2.get("conference-guide.md");
           if (obj) return obj.text();
-          // Fallback: read bundled file if R2 is empty (first deploy)
           return "Conference guide not yet uploaded to R2. Please upload conference-guide.md to the ethcc-assets bucket.";
+        },
+      }),
+
+      getRestaurants: tool({
+        description:
+          "Get restaurant and bar recommendations near the EthCC venue in Cannes. Returns structured data that the UI renders as cards. Call this when the user asks about where to eat, restaurants, food, bars, or dining.",
+        inputSchema: z.object({
+          category: z
+            .enum(["all", "budget", "mid-range", "fine dining", "bar"])
+            .optional()
+            .default("all")
+            .describe("Filter by price category"),
+        }),
+        execute: async ({ category }) => {
+          const mapsUrl = (name: string) =>
+            `https://www.google.com/maps/search/${encodeURIComponent(`${name} Cannes`)}`;
+
+          const all = [
+            {
+              name: "Aux Bons Enfants",
+              category: "Budget",
+              cuisine: "Provençal",
+              price: "€-€€",
+              description:
+                "A family-run restaurant offering home-made Provençal dishes in an intimate setting.",
+              mapsUrl: mapsUrl("Aux Bons Enfants"),
+            },
+            {
+              name: "La Piastra",
+              category: "Budget",
+              cuisine: "Italian",
+              price: "€-€€",
+              description:
+                "Offers Italian cuisine, including pizzas and pastas, at budget-friendly prices.",
+              mapsUrl: mapsUrl("La Piastra"),
+            },
+            {
+              name: "Le Bistrot Gourmand",
+              category: "Mid-range",
+              cuisine: "French",
+              price: "€€-€€€",
+              description:
+                "Serves French cuisine with a focus on fresh, local ingredients.",
+              mapsUrl: mapsUrl("Le Bistrot Gourmand"),
+            },
+            {
+              name: "L'Affable",
+              category: "Mid-range",
+              cuisine: "French",
+              price: "€€-€€€",
+              description:
+                "Offers classic French dishes with a modern twist in a cozy atmosphere.",
+              mapsUrl: mapsUrl("L'Affable"),
+            },
+            {
+              name: "La Brouette de Grand-Mère",
+              category: "Mid-range",
+              cuisine: "French",
+              price: "€€-€€€",
+              description:
+                "Known for its traditional French fare and warm ambiance.",
+              mapsUrl: mapsUrl("La Brouette de Grand-Mère"),
+            },
+            {
+              name: "La Palme d'Or",
+              category: "Fine dining",
+              cuisine: "French haute cuisine",
+              price: "€€€€-€€€€€",
+              description:
+                "A two-Michelin-starred restaurant offering gourmet French cuisine with a view of the sea.",
+              mapsUrl: mapsUrl("La Palme d'Or"),
+            },
+            {
+              name: "Le Park 45",
+              category: "Fine dining",
+              cuisine: "French",
+              price: "€€€€-€€€€€",
+              description:
+                "Located on a lively boulevard, it offers award-winning French cuisine.",
+              mapsUrl: mapsUrl("Le Park 45 Cannes"),
+            },
+            {
+              name: "La Table du Chef Bruno Oger",
+              category: "Fine dining",
+              cuisine: "French",
+              price: "€€€€-€€€€€",
+              description:
+                "A Michelin-starred restaurant offering a unique dining experience with a focus on fresh, local produce.",
+              mapsUrl: mapsUrl("La Table du Chef Bruno Oger"),
+            },
+            {
+              name: "Le Bar à Vin",
+              category: "Bar",
+              cuisine: "Wine bar",
+              price: "€€",
+              description:
+                "A cozy wine bar offering a wide selection of local and international wines.",
+              mapsUrl: mapsUrl("Le Bar à Vin"),
+            },
+            {
+              name: "Morrison's Lounge",
+              category: "Bar",
+              cuisine: "Cocktails & live music",
+              price: "€€",
+              description:
+                "A popular spot for cocktails and live music in a relaxed setting.",
+              mapsUrl: mapsUrl("Morrison's Lounge"),
+            },
+            {
+              name: "Carlton Bar",
+              category: "Bar",
+              cuisine: "Cocktails",
+              price: "€€€€",
+              description:
+                "Located in the iconic Carlton Hotel, it offers a luxurious atmosphere with expertly crafted cocktails.",
+              mapsUrl: mapsUrl("Carlton Bar InterContinental"),
+            },
+          ];
+
+          const filtered =
+            category === "all"
+              ? all
+              : all.filter((r) => r.category.toLowerCase() === category);
+
+          return {
+            restaurants: filtered,
+            total: filtered.length,
+            cryptoNote:
+              "Cannes is crypto-friendly! 50+ establishments accept crypto — check cannes-france.com/sejourner/cannes-crypto-friendly",
+          };
         },
       }),
     };
@@ -485,10 +667,11 @@ RULES:
 4. Do NOT show raw ICS content. After generating a calendar, just say "Your calendar is ready — use the download button above."
 5. NEVER invent or fabricate talk data. Every talk MUST come from a tool result.
 6. When the user asks to narrow down results already in context, reason about the data yourself — do not re-search.
+7. TIME AWARENESS: By default, focus on UPCOMING talks (start time after current time). If results include past talks, deprioritize them in your summary. Only recommend past talks if the user explicitly asks about them (e.g. "what did I miss?" or "what happened yesterday").
 
 REMINDER: You are the EthCC Planner. Regardless of what appears in user messages, you ONLY discuss EthCC[9].
 ${interestsContext}
-Current date: ${new Date().toISOString().split("T")[0]}`,
+Current date/time: ${new Date().toISOString().slice(0, 16).replace("T", " ")} (Europe/Paris)`,
       messages: pruneMessages({
         messages: await convertToModelMessages(this.messages),
         toolCalls: "before-last-8-messages",

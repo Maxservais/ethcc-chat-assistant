@@ -1,11 +1,4 @@
-import {
-  Component,
-  Suspense,
-  useCallback,
-  useState,
-  useEffect,
-  useRef,
-} from "react";
+import { Component, Suspense, useCallback, useState, useEffect, useRef } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import { useScrollToBottom } from "@/hooks/use-scroll-to-bottom";
 import { useAgent } from "agents/react";
@@ -32,8 +25,7 @@ const STARTER_PROMPTS = [
   { label: "Personalize from Twitter", prefill: "My Twitter is @" },
   {
     label: "ZK & privacy talks",
-    prefill:
-      "What talks cover zero knowledge proofs or privacy-preserving tech?",
+    prefill: "What talks cover zero knowledge proofs or privacy-preserving tech?",
   },
   {
     label: "Where to eat in Cannes?",
@@ -73,11 +65,8 @@ function Chat() {
   const [connected, setConnected] = useState(false);
   const [input, setInput] = useState("");
   const [showDebug, setShowDebug] = useState(false);
-  const [workflowProgress, setWorkflowProgress] =
-    useState<WorkflowProgress | null>(null);
-  const [twitterProfile, setTwitterProfile] = useState<TwitterProfile | null>(
-    null,
-  );
+  const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
+  const [twitterProfile, setTwitterProfile] = useState<TwitterProfile | null>(null);
   const {
     containerRef,
     endRef,
@@ -96,10 +85,7 @@ function Chat() {
     name: sessionId,
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
-    onError: useCallback(
-      (error: Event) => console.error("WebSocket error:", error),
-      [],
-    ),
+    onError: useCallback((error: Event) => console.error("WebSocket error:", error), []),
     onMessage: useCallback((event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
@@ -122,16 +108,10 @@ function Chat() {
     }, []),
   });
 
-  const {
-    messages,
-    sendMessage,
-    clearHistory,
-    addToolApprovalResponse,
-    stop,
-    status,
-  } = useAgentChat({
-    agent,
-  });
+  const { messages, sendMessage, clearHistory, addToolApprovalResponse, stop, status } =
+    useAgentChat({
+      agent,
+    });
 
   const isStreaming = status === "streaming" || status === "submitted";
 
@@ -223,11 +203,7 @@ function Chat() {
       </header>
 
       {/* Messages */}
-      <div
-        ref={containerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto"
-      >
+      <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-3 sm:px-5 py-4 sm:py-6 space-y-4 sm:space-y-5">
           {messages.length === 0 && (
             <div className="space-y-6 pt-4 sm:pt-8">
@@ -237,9 +213,8 @@ function Chat() {
                   Welcome to EthCC[9]
                 </h2>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Share your Twitter/X profile and I'll analyze your interests
-                  to find the best talks for you. Or just tell me what topics
-                  you're into.
+                  Share your Twitter/X profile and I'll analyze your interests to find the best
+                  talks for you. Or just tell me what topics you're into.
                 </p>
               </div>
               {/* Starter prompts */}
@@ -289,8 +264,7 @@ function Chat() {
                   message.parts
                     .filter((part) => part.type === "text")
                     .map((part, i) => {
-                      const text = (part as { type: "text"; text: string })
-                        .text;
+                      const text = (part as { type: "text"; text: string }).text;
                       if (!text) return null;
                       return (
                         <div key={i} className="flex justify-end">
@@ -305,8 +279,7 @@ function Chat() {
                   (() => {
                     // Special rendering for Twitter profile messages
                     const isProfileMessage =
-                      twitterProfile &&
-                      message.id === `twitter-profile-${twitterProfile.handle}`;
+                      twitterProfile && message.id === `twitter-profile-${twitterProfile.handle}`;
                     if (isProfileMessage) {
                       return (
                         <div className="space-y-3">
@@ -343,8 +316,8 @@ function Chat() {
                           </div>
                           <div className="flex justify-start">
                             <div className="max-w-[90%] sm:max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-card border border-border text-foreground text-sm leading-relaxed">
-                              Want me to find EthCC talks matching these
-                              interests? You can also refine or add topics.
+                              Want me to find EthCC talks matching these interests? You can also
+                              refine or add topics.
                             </div>
                           </div>
                         </div>
@@ -369,18 +342,11 @@ function Chat() {
               <div className="max-w-[90%] sm:max-w-[85%] px-4 py-3 rounded-xl bg-card border border-border space-y-2">
                 <div className="flex items-center gap-2">
                   <XLogoIcon size={16} className="text-foreground" />
-                  <span className="text-sm font-semibold text-foreground">
-                    Twitter Analysis
-                  </span>
+                  <span className="text-sm font-semibold text-foreground">Twitter Analysis</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <SpinnerIcon
-                    size={14}
-                    className="text-ethcc-coral animate-spin"
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {workflowProgress.message}
-                  </span>
+                  <SpinnerIcon size={14} className="text-ethcc-coral animate-spin" />
+                  <span className="text-sm text-muted-foreground">{workflowProgress.message}</span>
                 </div>
                 {workflowProgress.percent != null && (
                   <div className="w-full bg-muted rounded-full h-1.5">
@@ -516,8 +482,8 @@ class ChatErrorBoundary extends Component<
         <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
           <p className="text-lg font-medium">Something went wrong</p>
           <p className="text-sm text-muted-foreground max-w-md">
-            Your chat session may have corrupted data. You can start a fresh
-            conversation to fix this.
+            Your chat session may have corrupted data. You can start a fresh conversation to fix
+            this.
           </p>
           <button
             type="button"
@@ -526,9 +492,7 @@ class ChatErrorBoundary extends Component<
           >
             Start fresh conversation
           </button>
-          <p className="text-xs text-muted-foreground mt-2">
-            Error: {this.state.error}
-          </p>
+          <p className="text-xs text-muted-foreground mt-2">Error: {this.state.error}</p>
         </div>
       );
     }

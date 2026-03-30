@@ -5,6 +5,8 @@ import { CaretDownIcon } from "@phosphor-icons/react";
 import { ToolPartView } from "./ToolPartView";
 import { TalkCard } from "./TalkCard";
 import type { TalkCardProps } from "./TalkCard";
+import { RestaurantCard } from "./RestaurantCard";
+import type { RestaurantCardProps } from "./RestaurantCard";
 
 /** Unwrap codemode output: { code, result, logs } → result */
 function unwrapCodemode(raw: Record<string, unknown>): Record<string, unknown> {
@@ -43,6 +45,14 @@ function extractTalksFromOutput(output: Record<string, unknown>): TalkCardProps[
     }
   }
   return nested;
+}
+
+/** Extract restaurant cards from tool output */
+function extractRestaurantsFromOutput(output: Record<string, unknown>): RestaurantCardProps[] {
+  if (Array.isArray(output.restaurants)) {
+    return (output.restaurants as RestaurantCardProps[]).filter((r) => !!r.name);
+  }
+  return [];
 }
 
 interface AssistantMessageProps {
@@ -149,11 +159,13 @@ export function AssistantMessage({
           );
         }
 
-        // Tool with talk output → render cards
+        // Tool with talk or restaurant output → render cards
         if (part.state === "output-available") {
           const raw = part.output as Record<string, unknown> | undefined;
           if (raw) {
             const output = unwrapCodemode(raw);
+
+            // Talk cards
             const talks = extractTalksFromOutput(output);
             const newTalks = talks.filter((t) => {
               const slug = t.slug ?? t.title;
@@ -167,6 +179,20 @@ export function AssistantMessage({
                   <div className="max-w-[90%] sm:max-w-[85%] w-full space-y-3">
                     {newTalks.map((talk, i) => (
                       <TalkCard key={`${talk.slug ?? talk.title}-${i}`} {...talk} />
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
+            // Restaurant cards
+            const restaurants = extractRestaurantsFromOutput(output);
+            if (restaurants.length > 0) {
+              return (
+                <div key={key} className="flex justify-start">
+                  <div className="max-w-[90%] sm:max-w-[85%] w-full space-y-3">
+                    {restaurants.map((r, i) => (
+                      <RestaurantCard key={`${r.name}-${i}`} {...r} />
                     ))}
                   </div>
                 </div>
