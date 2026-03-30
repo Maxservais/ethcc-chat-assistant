@@ -8,6 +8,7 @@
   "compatibility_date": "2026-01-28",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server/entry.ts",
+  "routes": [{ "pattern": "ethcc.chat", "custom_domain": true }],
   "observability": {
     "enabled": true,
   },
