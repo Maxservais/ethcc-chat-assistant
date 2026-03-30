@@ -67,8 +67,9 @@ export function TalkCard({
   slug,
 }: TalkCardProps) {
   // Parse speakers string "Name (Org), Name2 (Org2)" into structured data
-  const parsedSpeakers = speakers
-    ? speakers.split(", ").map((s) => {
+  const speakerStr = typeof speakers === "string" ? speakers : "";
+  const parsedSpeakers = speakerStr
+    ? speakerStr.split(", ").map((s) => {
         const match = /^(.+?)\s*\((.+?)\)$/.exec(s);
         return match ? { name: match[1], org: match[2] } : { name: s, org: null };
       })
