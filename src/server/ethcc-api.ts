@@ -55,7 +55,7 @@ async function trpcQuery<T>(
   const url = new URL(`${BASE_URL}/${router}.${procedure}`);
   url.searchParams.set("input", JSON.stringify({ json: input }));
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`EthCC API error: ${res.status} ${res.statusText} for ${router}.${procedure}`);
   }
@@ -69,14 +69,11 @@ async function cachedQuery<T>(
   cacheKey: string,
   fetcher: () => Promise<T>,
 ): Promise<T> {
-  // Try cache first
   const cached = await kv.get(cacheKey, "json");
   if (cached) return cached as T;
 
-  // Fetch fresh data
   const data = await fetcher();
-
-  // Store in KV with TTL (fire-and-forget, don't block response)
+  // Fire-and-forget — don't block response on cache write
   void kv.put(cacheKey, JSON.stringify(data), { expirationTtl: CACHE_TTL });
 
   return data;
@@ -129,13 +126,12 @@ export async function fetchLocations(kv: KVNamespace): Promise<EthccLocation[]> 
 
 const REAL_TALK_TYPES = new Set(["Talk", "Workshop", "Demo"]);
 
-/** Filter out admin items (lunch, doors, etc.) -- keep only Talk and Workshop */
+/** Filter out admin items (lunch, doors, etc.) — keep only Talk, Workshop, Demo */
 export function filterRealTalks(talks: EthccTalk[]): EthccTalk[] {
   return talks.filter((t) => REAL_TALK_TYPES.has(t.extendedProps.type));
 }
 
-/** Case-insensitive search: splits query into words (2+ chars), matches if ANY word hits.
- *  Title/track/speaker matches are weighted higher than description matches. */
+/** IDF-weighted search: title/track/speaker matches weighted higher than description */
 export function searchTalksLocal(talks: EthccTalk[], query: string): EthccTalk[] {
   const words = query
     .toLowerCase()
@@ -143,41 +139,41 @@ export function searchTalksLocal(talks: EthccTalk[], query: string): EthccTalk[]
     .filter((w) => w.length >= 2);
   if (words.length === 0) return talks;
 
-  // Compute IDF: rare words score higher than common ones
+  // Precompute lowercased fields once per talk (avoids redundant work in IDF + scoring)
+  const prepared = talks.map((t) => ({
+    talk: t,
+    title: t.title.toLowerCase(),
+    track: t.extendedProps.track.toLowerCase(),
+    speakers: t.extendedProps.speakersData
+      .map((s) => `${s.displayName} ${s.organization}`)
+      .join(" ")
+      .toLowerCase(),
+    desc: (t.extendedProps.description ?? "").toLowerCase(),
+  }));
+
+  // IDF: rare words score higher than common ones
   const wordDocCounts = new Map<string, number>();
   for (const w of words) {
     let count = 0;
-    for (const t of talks) {
-      const blob =
-        `${t.title} ${t.extendedProps.track} ${t.extendedProps.description ?? ""} ${t.extendedProps.speakersData.map((s) => `${s.displayName} ${s.organization}`).join(" ")}`.toLowerCase();
-      if (blob.includes(w)) count++;
+    for (const p of prepared) {
+      if (p.title.includes(w) || p.track.includes(w) || p.speakers.includes(w) || p.desc.includes(w)) count++;
     }
     wordDocCounts.set(w, count);
   }
 
-  const scored = talks
-    .map((t) => {
-      const title = t.title.toLowerCase();
-      const track = t.extendedProps.track.toLowerCase();
-      const speakers = t.extendedProps.speakersData
-        .map((s) => `${s.displayName} ${s.organization}`)
-        .join(" ")
-        .toLowerCase();
-      const desc = (t.extendedProps.description ?? "").toLowerCase();
-
+  const scored = prepared
+    .map((p) => {
       let score = 0;
       for (const w of words) {
-        const docCount = wordDocCounts.get(w) ?? 1;
-        // IDF weight: log(totalDocs / docsWithTerm). Rare terms score much higher.
-        const idf = Math.log(talks.length / Math.max(docCount, 1));
-        const weight = Math.max(idf, 0.5); // floor at 0.5 so common terms still count a little
+        const idf = Math.log(talks.length / Math.max(wordDocCounts.get(w) ?? 1, 1));
+        const weight = Math.max(idf, 0.5);
 
-        if (title.includes(w)) score += 3 * weight;
-        else if (track.includes(w)) score += 2 * weight;
-        else if (speakers.includes(w)) score += 2 * weight;
-        else if (desc.includes(w)) score += 1 * weight;
+        if (p.title.includes(w)) score += 3 * weight;
+        else if (p.track.includes(w)) score += 2 * weight;
+        else if (p.speakers.includes(w)) score += 2 * weight;
+        else if (p.desc.includes(w)) score += 1 * weight;
       }
-      return { talk: t, score };
+      return { talk: p.talk, score };
     })
     .filter(({ score }) => score > 0);
 
@@ -185,12 +181,7 @@ export function searchTalksLocal(talks: EthccTalk[], query: string): EthccTalk[]
   return scored.map(({ talk }) => talk);
 }
 
-/**
- * Search talks by multiple interest topics independently, then merge and rank.
- * Talks matching more interests rank higher. Within same interest count,
- * talks are ranked by cumulative IDF-weighted score.
- */
-/** Search by multiple interests, returning ranked talks + per-talk interest matches in a single pass */
+/** Search by multiple interests, returning ranked talks + per-talk interest matches */
 export function searchByInterests(
   talks: EthccTalk[],
   interests: string[],
@@ -283,81 +274,6 @@ export function getUniqueTracks(talks: EthccTalk[]): string[] {
 function timeFromISO(iso: string): string {
   const time = iso.split("T")[1];
   return time ? time.slice(0, 5) : "";
-}
-
-/** Track display name → ethcc.io agenda URL slug */
-const TRACK_SLUGS: Record<string, string> = {
-  "AI Agents and Automation": "ai-automation",
-  "Applied cryptography": "applied-cryptography",
-  "Block Fighters": "block-fighters",
-  "Breakout sessions": "breakout-sessions",
-  "Built on Ethereum": "built-on-ethereum",
-  "Core Protocol": "core-protocol",
-  "Cypherpunk & Privacy": "cypherpunk-privacy",
-  DeFi: "defi",
-  "DeFi Day": "defi-day",
-  EthStaker: "ethstaker",
-  "If you know you know": "if-you-know-you-know",
-  Kryptosphere: "kryptosphere",
-  "Layer 2s": "layer-2s",
-  "Product & Marketers": "product-marketers",
-  "Regulation & Compliance": "regulation-compliance",
-  Research: "research",
-  "RWA Tokenisation": "rwa-tokenisation",
-  Security: "security",
-  "Stablecoins & Global Payments": "stablecoins",
-  TERSE: "terse",
-  "The Unexpected": "unknown",
-  "Zero Tech & TEE": "zk-crypto",
-};
-
-/** Resolve a track display name to its ethcc.io URL slug */
-function trackToSlug(track: string): string | undefined {
-  const slug =
-    TRACK_SLUGS[track] ??
-    TRACK_SLUGS[
-      Object.keys(TRACK_SLUGS).find((k) => k.toLowerCase() === track.toLowerCase()) ?? ""
-    ];
-  return slug || undefined;
-}
-
-/** Find the date with the most talks */
-function mostPopularDate(talks: EthccTalk[]): string | undefined {
-  const counts = new Map<string, number>();
-  for (const t of talks) {
-    const d = t.start.split("T")[0]!;
-    counts.set(d, (counts.get(d) ?? 0) + 1);
-  }
-  let best: string | undefined;
-  let bestCount = 0;
-  for (const [d, c] of counts) {
-    if (c > bestCount) {
-      best = d;
-      bestCount = c;
-    }
-  }
-  return best;
-}
-
-/** Build an ethcc.io agenda URL with optional date and track filters */
-export function buildAgendaUrl(options?: {
-  date?: string;
-  track?: string;
-  tracks?: string[];
-  talks?: EthccTalk[];
-}): string {
-  const params = new URLSearchParams({ viewMode: "list" });
-  // ethcc.io defaults to Day 1 if no date — pick the day with most matches instead
-  const date = options?.date ?? (options?.talks ? mostPopularDate(options.talks) : undefined);
-  if (date) params.set("date", date);
-  if (options?.track) {
-    const slug = trackToSlug(options.track);
-    if (slug) params.set("tracks", slug);
-  } else if (options?.tracks && options.tracks.length > 0) {
-    const slugs = options.tracks.map(trackToSlug).filter((s): s is string => !!s);
-    if (slugs.length > 0) params.set("tracks", [...new Set(slugs)].join(","));
-  }
-  return `https://ethcc.io/ethcc-9/agenda?${params}`;
 }
 
 /** Format a talk for display in AI responses (compact, saves tokens) */

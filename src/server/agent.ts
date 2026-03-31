@@ -6,7 +6,6 @@ import {
   pruneMessages,
   tool,
   stepCountIs,
-  createUIMessageStreamResponse,
   type StreamTextOnFinishCallback,
   type ToolSet,
 } from "ai";
@@ -683,8 +682,6 @@ Current date/time: ${new Date().toISOString().slice(0, 16).replace("T", " ")} (E
       abortSignal: options?.abortSignal,
     });
 
-    return createUIMessageStreamResponse({
-      stream: result.toUIMessageStream(),
-    });
+    return result.toUIMessageStreamResponse();
   }
 }
